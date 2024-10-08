@@ -2,6 +2,7 @@ import openai
 from dotenv import load_dotenv
 import os
 import json
+from schemas.prompt_schema import PromptChatStreamResponseSchema
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -38,6 +39,9 @@ async def generate_response(user_input):
             if hasattr(delta, "content") and delta.content:
                 clean_answer = delta.content.replace("```", "").replace("'''", "").replace('"', '').strip()
                 conversation_history.append({"role": "assistant", "content": clean_answer})
-                yield json.dumps({"status": "processing", "data": clean_answer}, ensure_ascii=False) + "\n"
+                response = PromptChatStreamResponseSchema(status="processing", data=clean_answer)
+                yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
 
-    yield json.dumps({"status": "complete", "data": "Stream finished"}, ensure_ascii=False) + "\n"
+    response = PromptChatStreamResponseSchema(status="complete", data="Stream finished")
+    yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
+

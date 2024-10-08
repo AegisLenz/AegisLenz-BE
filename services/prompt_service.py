@@ -4,4 +4,3 @@ class PromptService:
     async def handle_chatgpt_conversation(self, user_input):
         async for chunk in generate_response(user_input):
             yield chunk
-        # return await generate_response(user_input)
