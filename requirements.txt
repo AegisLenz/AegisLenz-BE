@@ -1,3 +1,4 @@
+redis[async]==5.1.1
 openai==1.51.0
 fastapi==0.115.0
 uvicorn==0.31.0
