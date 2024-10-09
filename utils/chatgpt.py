@@ -23,7 +23,7 @@ def clean_streaming_chunk(chunk):
 
 async def generate_response(user_input, prompt_id):
     # Redis에서 기존 대화 기록 가져오기
-    conversation_key = "chat:{prompt_id}"
+    conversation_key = f"chat:{prompt_id}"
     conversation_history = await redis_client.get_key(conversation_key)
     print("가져온 대화 내역: ", conversation_history)
     
@@ -53,7 +53,7 @@ async def generate_response(user_input, prompt_id):
     full_response = ""
 
     # 스트리밍 응답 처리
-    async for chunk in stream:
+    for chunk in stream:
         clean_answer = clean_streaming_chunk(chunk)
         if clean_answer:
             full_response += clean_answer
