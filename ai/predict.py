@@ -32,8 +32,8 @@ class BERTPredictor:
 
         return preprocessed_data
 
-    def predict(self, logs):
-        input_text = " ".join(logs)
+    def predict(self, data):
+        input_text = " ".join(data)
         inputs = self.tokenizer(input_text, padding='max_length', truncation=True, return_tensors='pt', max_length=512)
         input_ids = inputs['input_ids'].squeeze()
         attention_mask = inputs['attention_mask'].squeeze()
