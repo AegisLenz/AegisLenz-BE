@@ -5,7 +5,7 @@ class BERTPredictor:
     def __init__(self):
         self.model, self.tokenizer, self.label_encoder = load_model()
 
-    def preprocess_logs(self, data):
+    async def preprocess_logs(self, data):
         preprocessed_data = []
         for idx in range(len(data) - 1, -1, -1):
             user_identity = data[idx].get('userIdentity', {})
@@ -32,7 +32,7 @@ class BERTPredictor:
 
         return preprocessed_data
 
-    def predict(self, data):
+    async def predict(self, data):
         input_text = " ".join(data)
         inputs = self.tokenizer(input_text, padding='max_length', truncation=True, return_tensors='pt', max_length=512)
         input_ids = inputs['input_ids'].squeeze()
