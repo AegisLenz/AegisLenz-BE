@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 redis_host = os.getenv("REDIS_HOST")
+redis_port = os.getenv("REDIS_PORT")
 
 class RedisDriver:
     def __init__(self):
-        self.redis_url = f'redis://{redis_host}'
+        self.redis_url = f'redis://{redis_host}:{redis_port}'
         self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
     
     async def set_key(self, key, value, ttl=3600):
