@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import regex
 import openai
@@ -12,19 +13,26 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 host_ip = os.getenv("HOST_IP")
 elasticsearch_port = os.getenv("ELASTICSEARCH_PORT")
+index_name = os.getenv("INDEX_NAME")
 
 client = openai.OpenAI(api_key=api_key)
 redis_client = RedisDriver()
 es = AsyncElasticsearch(f"http://{host_ip}:{elasticsearch_port}")
 
+def extract_dashboard_from_response(response):
+    match = re.search(r'```python(.*?)```', response, re.DOTALL)
+    if match:
+        extracted_str = match.group(1).strip()
+        return extracted_str
+    else:
+        return None
+
 
 def extract_json_from_response(response):
-    # regex 모듈을 사용하여 재귀적으로 중괄호 패턴을 탐지
     match = regex.search(r"\{(?:[^{}]|(?R))*\}", response)
     if match:
         json_str = match.group(0)
         try:
-            # 추출된 문자열이 유효한 JSON인지 확인
             json_obj = json.loads(json_str)
             return json_obj
         except json.JSONDecodeError:
@@ -75,24 +83,30 @@ async def generate_response(user_input, prompt_id):
         clean_answer = clean_streaming_chunk(chunk)
         if clean_answer:
             full_response += clean_answer
-            response = PromptChatStreamResponseSchema(status="processing", data=clean_answer)
+            response = PromptChatStreamResponseSchema(status="processing", type="ElasticSearch", data=clean_answer)
             yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
-
-    print(full_response)
 
     # ChatGPT API의 응답값에서 ES 쿼리만 파싱하여 ELK 서버의 Elasticsearch에 쿼리 전송
     es_query = extract_json_from_response(full_response)
     if es_query:
         try:
-            result = await es.search(index="filebeat/*", body=es_query)  # 비동기 호출로 변경
-            result_data = result.body  # 결과는 result.body로 처리해야 함
+            result = await es.search(index=index_name, body=es_query)  # 비동기 호출로 변경
+            result_data = json.dumps(result['hits']['hits'], ensure_ascii=False)
             full_response += result_data
-            response = PromptChatStreamResponseSchema(status="processing", data=result_data)
+            response = PromptChatStreamResponseSchema(status="processing", type="ElasticSearchQueryResult", data=result_data)
             yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     else:
-        raise HTTPException(status_code=400, detail="No valid Elasticsearch query found in the response text.")
+        pass
+
+    # 대시보드에 표시할 그래프 필터링
+    dashboards = extract_dashboard_from_response(full_response)
+    dashboards = json.dumps(dashboards, ensure_ascii=False)
+
+    full_response += dashboards
+    response = PromptChatStreamResponseSchema(status="processing", type="dashboard", data=dashboards)
+    yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
 
     # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 히스토리에 저장
     conversation_history.append({"role": "assistant", "content": full_response})
