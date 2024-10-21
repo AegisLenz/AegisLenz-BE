@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: elasticsearch:8.15.2
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - ELASTIC_PASSWORD=*
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    networks:
+      - elastic
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.2
+    container_name: logstash
+    ports*
+      - "5044:5044"
+    volumes:
+      - ./Logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./Logstash/config/pipeline.yml:/usr/share/logstash/config/pipeline.yml
+      - ./Logstash/pipeline/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
+      - logstash-data:/usr/share/logstash/data
+    networks:
+      - elastic
+
+  kibana:
+    image: kibana:8.15.2
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    networks:
+      - elastic
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.10.2
+    container_name: filebeat
+    volumes:
+      - ./Filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - filebeat-data:/usr/share/filebeat/data
+    networks:
+      - elastic
+
+networks:
+  elastic:
+    driver: bridge
+
+volumes:
+  es-data:
+    driver: local 
+  logstash-data:
+    driver: local 
+  kibana-data:
+    driver: local  
+  filebeat-data:
+    driver: local  

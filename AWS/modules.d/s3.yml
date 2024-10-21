@@ -1,0 +1,12 @@
+- module: s3
+  s3:
+    bucket_arn: "arn:aws:s3:::aegislenz-s3"
+    queue_url: "https://sqs.us-east-1.amazonaws.com/713881791527/AegisLenz-s3-queue"
+    credential_profile_name: "*"
+    access_key_id: "*"  
+    secret_access_key: "*" 
+    scan_frequency: 5s
+    file_selectors:
+      - regex: '.*\.json\.gz'
+    expand_event_list_from_field: "Records"
+    prefix: "AWSLogs/713881791527/CloudTrail/us-east-1/"

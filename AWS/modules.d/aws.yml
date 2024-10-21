@@ -1,0 +1,16 @@
+- module: aws
+  s3access:
+    enabled: true
+    var.queue_url: "https://sqs.us-east-1.amazonaws.com/713881791527/AegisLenz-s3-queue"
+    var.access_key_id: "*"
+    var.secret_access_key: "*"  
+    var.visibility_timeout: 300s
+    var.arn: "arn:aws:s3:::aegislenz-s3"
+
+  cloudtrail:
+    enabled: true
+    var.queue_url: "https://sqs.us-east-1.amazonaws.com/713881791527/AegisLenz-cloudtrail-queue"
+    var.access_key_id: "*"
+    var.secret_access_key: "*"
+    var.visibility_timeout: 300s
+    var.arn: "arn:aws:iam::713881791527:policy/Aegislenz-s3-queue"
