@@ -19,7 +19,7 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:8.15.2
     container_name: logstash
-    ports*
+    ports:
       - "5044:5044"
     volumes:
       - ./Logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
