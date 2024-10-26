@@ -14,6 +14,7 @@ services:
       - ../model/label_encoder.pkl:/app/ai/model/label_encoder.pkl
     depends_on:
       - redis
+      - mongodb
     environment:
       TZ: Asia/Seoul
     networks:
@@ -24,12 +25,29 @@ services:
   redis:
     container_name: aegislenz-redis
     image: redis
-    hostname: redis
     ports:
       - "6380:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - aegislenz-internal
+
+  mongodb:
+    container_name: aegisLenz-mongodb
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - aegislenz-internal
+    env_file:
+      - .env
 
 networks:
   aegislenz-internal:
     driver: bridge
+
+volumes:
+  mongodb_data:
+  redis_data:
