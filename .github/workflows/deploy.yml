@@ -26,5 +26,5 @@ jobs:
           script: |
             cd AegisLenz/AegisLenz-BE
             git pull origin dev
-            docker-compose -p aegislenz stop
-            docker-compose -p aegislenz start
+            docker-compose -p aegislenz down
+            docker-compose -p aegislenz up --build -d
