@@ -1,0 +1,19 @@
+{
+    "UserName": "Wonje_Cha",
+    "UserId": "AIDA2MNVLVQT5TARLHOZP",
+    "CreateDate": "2024-10-01T04:11:48+00:00",
+    "UserPolicies": [],
+    "AttachedPolicies": [
+        "AmazonEC2FullAccess",
+        "AdministratorAccess"
+    ],
+    "Groups": [],
+    "AccessKeysLastUsed": [
+        {
+            "AccessKeyId": "AKIA2MNVLVQT53CDZV4V",
+            "Status": "Active",
+            "LastUsedDate": "2024-10-26T07:57:00+00:00"
+        }
+    ],
+    "LastUpdated": "2024-10-26T17:02:17.215626"
+}
