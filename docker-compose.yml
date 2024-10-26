@@ -3,13 +3,15 @@ version: "3.8"
 services:
   api:
     container_name: aegislenz-BE
-    image: jyjyjy25/aegislenz:latest
+    image:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     ports:
       - "80:80"
     volumes:
-      - ./best_model.pth:/app/model/best_model.pth
-      - ./label_encoder.pkl:/app/model/label_encoder.pkl
+      - ./best_model.pth:/app/ai/model/best_model.pth
+      - ./label_encoder.pkl:/app/ai/model/label_encoder.pkl
     depends_on:
       - redis
     environment:
