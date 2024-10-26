@@ -32,7 +32,7 @@ services:
       - aegislenz-internal
 
   mongodb:
-    container_name: aegisLenz-mongodb
+    container_name: aegislenz-mongodb
     image: mongo
     ports:
       - "27017:27017"
