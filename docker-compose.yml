@@ -3,7 +3,7 @@ version: "3.8"
 services:
   api:
     container_name: aegislenz-BE
-    image:
+    build:
       context: .
       dockerfile: Dockerfile
     restart: always
