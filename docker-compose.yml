@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  api:
+    container_name: aegislenz-BE
+    image: jyjyjy25/aegislenz:latest
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./best_model.pth:/app/model/best_model.pth
+      - ./label_encoder.pkl:/app/model/label_encoder.pkl
+    depends_on:
+      - redis
+    environment:
+      TZ: Asia/Seoul
+    networks:
+      - aegislenz-internal
+    env_file:
+      - .env
+
+  redis:
+    container_name: aegislenz-redis
+    image: redis
+    hostname: redis
+    ports:
+      - "6380:6379"
+    networks:
+      - aegislenz-internal
+
+networks:
+  aegislenz-internal:
+    driver: bridge
