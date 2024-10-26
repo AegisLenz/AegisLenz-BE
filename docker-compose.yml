@@ -10,7 +10,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ../model/:app/ai/model/
+      - ../model:/app/ai/model
     depends_on:
       - redis
       - mongodb
