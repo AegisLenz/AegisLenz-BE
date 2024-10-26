@@ -10,14 +10,14 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./best_model.pth:/app/ai/model/best_model.pth
-      - ./label_encoder.pkl:/app/ai/model/label_encoder.pkl
+      - ../model/best_model.pth:/app/ai/model/best_model.pth
+      - ../model/label_encoder.pkl:/app/ai/model/label_encoder.pkl
     depends_on:
       - redis
     environment:
       TZ: Asia/Seoul
     networks:
-      - aegislenz-internal
+      - aegislenz-internal`1
     env_file:
       - .env
 
