@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from routers import user_router, prompt_router, bert_router
-from core.mongodb_driver import MongoDB
+from core.mongodb_driver import mongodb
 from core.logging_config import setup_logger
 
 logger = setup_logger()
@@ -10,8 +10,6 @@ app = FastAPI(root_path="/api/v1")
 app.include_router(user_router.router)
 app.include_router(prompt_router.router)
 app.include_router(bert_router.router)
-
-mongodb = MongoDB()
 
 @app.get("/")
 def read_root():
