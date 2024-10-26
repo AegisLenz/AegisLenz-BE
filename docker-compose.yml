@@ -17,7 +17,7 @@ services:
     environment:
       TZ: Asia/Seoul
     networks:
-      - aegislenz-internal`1
+      - aegislenz-internal
     env_file:
       - .env
 
