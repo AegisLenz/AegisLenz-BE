@@ -10,8 +10,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ../model/best_model.pth:/app/ai/model/best_model.pth
-      - ../model/label_encoder.pkl:/app/ai/model/label_encoder.pkl
+      - ../model/:app/ai/model/
     depends_on:
       - redis
       - mongodb
