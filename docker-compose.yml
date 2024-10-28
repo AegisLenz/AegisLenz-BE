@@ -16,6 +16,8 @@ services:
       - mongodb
     environment:
       TZ: Asia/Seoul
+      ELASTICSEARCH_HOST: "http://23.23.93.131"
+      ELASTICSEARCH_PORT: "9200"
     networks:
       - aegislenz-internal
     env_file:
