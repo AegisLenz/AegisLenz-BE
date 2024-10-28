@@ -67,5 +67,6 @@ def check_user_permissions(user_name):
     else:
         print(f"User {user_name} has no S3 permissions.")
 
-# 사용자의 EC2 및 S3 권한 확인
-check_user_permissions("Wonje_Cha")
+if __name__ == "__main__":
+    # 사용자의 EC2 및 S3 권한 확인
+    check_user_permissions("Wonje_Cha")
