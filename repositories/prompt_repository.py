@@ -22,12 +22,17 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
 
     async def create_prompt(self):
-        prompt_session = PromptSession(
-            created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
-            updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
-        )
-        result = await self.mongodb_engine.save(prompt_session)
-        return result.id
+        try:
+            prompt_session = PromptSession(
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
+                updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
+            result = await self.mongodb_engine.save(prompt_session)
+            return result.id
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
     async def find_es_document(self, es_query):
         try:

@@ -6,9 +6,7 @@ from fastapi import HTTPException, Depends
 from datetime import datetime, timedelta, timezone
 from repositories.prompt_repository import PromptRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, CreatePromptResponseSchema
-from core.logging_config import setup_logger
 
-logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends()):
