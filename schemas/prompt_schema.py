@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from odmantic import ObjectId
 from typing import Optional, Union
 
 class PromptChatRequestSchema(BaseModel):
@@ -22,5 +23,15 @@ class PromptChatStreamResponseSchema(BaseModel):
                 "status": "processing",
                 "type": "ElasticSearch",
                 "data": "ChatGPT 응답 예시"
+            }
+        }
+
+class CreatePromptResponseSchema(BaseModel):
+    prompt_id: ObjectId
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "prompt_id": "1",
             }
         }
