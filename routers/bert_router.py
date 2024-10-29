@@ -1,3 +1,4 @@
+import os
 import json
 import asyncio
 from collections import deque
@@ -6,9 +7,16 @@ from fastapi.responses import StreamingResponse
 from services.bert_service import BERTService
 from schemas.bert_schema import PredictionSchema
 from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Elasticsearch 클라이언트 설정
-es = Elasticsearch("http://23.23.93.131:9200", max_retries=10, retry_on_timeout=True, request_timeout=120)
+es_host = os.getenv("ES_HOST", "http://localhost")
+es_port = os.getenv("ES_PORT", "9200")
+es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
+es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
 
 # API 라우터 설정
 router = APIRouter(prefix="/bert", tags=["bert"])
@@ -19,9 +27,8 @@ log_buffer = deque(maxlen=5)
 # Elasticsearch에서 로그 데이터를 가져오는 함수
 async def fetch_logs_from_elasticsearch():
     try:
-        # 최신 로그 데이터를 5개 가져오기
         response = es.search(
-            index="cloudtrail-logs-*",  # 패턴에 맞는 인덱스에서 검색
+            index=es_index,  # .env에서 불러온 인덱스 이름 사용
             body={
                 "size": 5,
                 "sort": [{"@timestamp": {"order": "desc"}}],
@@ -37,14 +44,10 @@ async def fetch_logs_from_elasticsearch():
 
 @router.post("/predict")
 async def predict_attack(log_data: dict):
-    try:
-        log_buffer.append(log_data)  # 로그 데이터를 버퍼에 저장
-        print(f"Added new log to buffer. Current buffer size: {len(log_buffer)}")
-        return {"status": "log received"}  # 데이터가 정상 수신됨을 응답
-    except Exception as e:
-        # 예외 발생 시 에러 메시지를 반환
-        print(f"Error adding log to buffer: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # 사용되지 않는 API일 경우 코드 주석 처리 또는 제거
+    # log_buffer.append(log_data)
+    # print(f"Added new log to buffer. Current buffer size: {len(log_buffer)}")
+    return {"status": "API not used"}  # 응답을 수정하여 명확히 표시
 
 @router.get("/events", response_model=PredictionSchema)
 async def sse_events(bert_service: BERTService = Depends(BERTService)):
@@ -53,9 +56,8 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
             try:
                 # Elasticsearch에서 최근 로그 가져오기
                 logs = await fetch_logs_from_elasticsearch()
-                
                 if logs:
-                    log_buffer.extend(logs)
+                    log_buffer.extend(logs[:5])  # 최대 5개의 로그만 유지
                     print(f"Log buffer extended. Current buffer size: {len(log_buffer)}")
 
                 # 버퍼가 5개로 가득 차면 예측 실행
@@ -63,15 +65,12 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                     prediction = await bert_service.predict_attack(list(log_buffer))
                     print(f"Prediction result: {prediction}")
                 else:
-                    prediction = 'Not enough data yet'  # 충분한 데이터가 없으면 대기
+                    prediction = 'Not enough data yet'
+                    print("Not enough data in buffer for prediction.")
 
-                # 예측 결과가 'No Attack'이 아니면, SSE로 전송
-                if prediction != 'No Attack':
-                    response = PredictionSchema(is_attack=True, prediction=prediction)
-                    yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
-
-                # 예측 후 버퍼 비움
-                log_buffer.clear()
+                # 예측 결과가 'No Attack'이 아니거나 데이터가 부족할 때 SSE로 전송
+                response = PredictionSchema(is_attack=prediction != 'No Attack', prediction=prediction)
+                yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
 
             except Exception as e:
                 print(f"Error in event generator: {str(e)}")
