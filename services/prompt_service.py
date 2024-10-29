@@ -6,7 +6,9 @@ from fastapi import HTTPException, Depends
 from datetime import datetime, timedelta, timezone
 from repositories.prompt_repository import PromptRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, CreatePromptResponseSchema
+from core.logging_config import setup_logger
 
+logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends()):
@@ -75,17 +77,21 @@ class PromptService:
         
         es_query = self.clean_response(response)
         if es_query:
-            try:
-                return es_query
-                # es_result = await self.prompt_repository.find_es_document(es_query)
-                # return es_result
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+            es_result = await self.prompt_repository.find_es_document(es_query)
+            return es_result
         else:
             raise HTTPException(status_code=400, detail="Failed ElasticSearch query parsing.")
 
     async def db_persona(self, query):
-        return None
+        response = await self.receive_gpt_response("DB", query)
+
+        db_query = self.clean_response(response)
+        logger.info(db_query)
+        if db_query:
+            db_result = await self.prompt_repository.find_db_document(db_query)
+            return db_result
+        else:
+            raise HTTPException(status_code=400, detail="Failed MongoDB query parsing.")
 
     async def policy_persona(self, query):
         return None
@@ -112,6 +118,7 @@ class PromptService:
         classify_response = await self.classify_persona(query)
         classify_data = json.loads(classify_response)
         classification_result = classify_data.get("topics")
+        logger.info(classification_result)
         
         # 대시보드 데이터
         dashboards = await self.dashboard_persona(query)
@@ -121,12 +128,14 @@ class PromptService:
         # 분류기 결과에 따른 페르소나 처리
         if classification_result == "DashbPr":
             persona_response = dashboards
-        elif classification_result in ["onlyES", "onlyMDB", "Policy"]:
+        elif classification_result in ["onlyES", "onlyMDB", "policy"]:
             persona_response = await self.generate_response_by_persona(classification_result, query)
             persona_response = json.dumps(dashboards) + "\n" + persona_response
         else:
             raise HTTPException(status_code=500, detail="Failed classify.")
         
+        logger.info(persona_response)
+
         # 요약 데이터
         stream = self.gpt_client.chat.completions.create(
             model="gpt-4o-mini",

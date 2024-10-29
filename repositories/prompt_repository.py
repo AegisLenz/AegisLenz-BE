@@ -43,6 +43,24 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+    async def find_db_document(self, db_query):
+        try:
+            parsed_query = json.loads(db_query)
+
+            # 컬렉션 이름과 find 조건 추출
+            collection_name = parsed_query.get("collection")
+            find_filter = parsed_query.get("find", {})
+
+            # MongoDB에서 컬렉션 접근 및 조회
+            collection = self.database[collection_name]
+            cursor = collection.find(find_filter)
+            result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
+            return result
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
     async def load_conversation_history(self, prompt_session_id: str):
         try:
             # Redis에서 conversation history 조회
