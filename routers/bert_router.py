@@ -64,13 +64,14 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                 if len(log_buffer) == 5:
                     prediction = await bert_service.predict_attack(list(log_buffer))
                     print(f"Prediction result: {prediction}")
-                else:
-                    prediction = 'Not enough data yet'
-                    print("Not enough data in buffer for prediction.")
 
-                # 예측 결과가 'No Attack'이 아니거나 데이터가 부족할 때 SSE로 전송
-                response = PredictionSchema(is_attack=prediction != 'No Attack', prediction=prediction)
-                yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
+                    # 예측 결과가 'No Attack'이 아닌 경우에만 SSE 전송
+                    if prediction != 'No Attack':
+                        response = PredictionSchema(is_attack=True, prediction=prediction)
+                        yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
+                else:
+                    # 데이터가 부족할 경우 SSE 이벤트를 전송하지 않고 대기
+                    print("Buffer does not contain enough data for prediction. Waiting for more logs.")
 
             except Exception as e:
                 print(f"Error in event generator: {str(e)}")
