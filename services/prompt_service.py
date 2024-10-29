@@ -3,6 +3,7 @@ import json
 import openai
 from dotenv import load_dotenv
 from fastapi import HTTPException, Depends
+from datetime import datetime, timedelta, timezone
 from repositories.prompt_repository import PromptRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, CreatePromptResponseSchema
 from core.logging_config import setup_logger
@@ -107,7 +108,7 @@ class PromptService:
 
         # DB에서 대화 히스토리 가져오기
         conversation_history = await self.prompt_repository.load_conversation_history(prompt_session_id)
-        conversation_history.append({"role": "user", "content": user_input})
+        conversation_history.append({"role": "user", "content": user_input, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
         
         # 분류기 데이터
         classify_response = await self.classify_persona(query)
@@ -127,7 +128,7 @@ class PromptService:
             persona_response = json.dumps(dashboards) + "\n" + persona_response
         else:
             raise HTTPException(status_code=500, detail="Failed classify.")
-
+        
         # 요약 데이터
         stream = self.gpt_client.chat.completions.create(
             model="gpt-4o-mini",
@@ -144,8 +145,8 @@ class PromptService:
                 response = PromptChatStreamResponseSchema(status="processing", type="Summary", data=clean_answer)
                 yield json.dumps(response.dict(), ensure_ascii=False) + "\n"
         
-        # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 히스토리에 저장
-        conversation_history.append({"role": "assistant", "content": assistant_response})
+        # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 합쳐 히스토리에 저장
+        conversation_history.append({"role": "assistant", "content": assistant_response, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
 
         # DB에 대화 히스토리 저장
         await self.prompt_repository.save_conversation_history(prompt_session_id, conversation_history)

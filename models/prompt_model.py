@@ -12,15 +12,14 @@ class PromptSession(Model):
     model_config = {"collection": "PromptSession"}
 
 
-class Message(Model):
-    # timestamp: datetime
-    role: str
-    type: Optional[str] = None
-    content: Optional[str] = None
-
-
 class PromptMessage(Model):
-    prompt_session_id: ObjectId  # foreign key to link with PromptSession
+    prompt_session_id: ObjectId
     messages: List[Message]
 
     model_config = {"collection": "PromptMessage"}
+
+
+class Message(Model):
+    timestamp: datetime
+    role: str
+    content: Optional[str] = None
