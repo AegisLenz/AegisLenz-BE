@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import boto3
 from dotenv import load_dotenv
 import os
@@ -20,25 +21,41 @@ def get_iam_users():
     users = iam_client.list_users()["Users"]
 
     for user in users:
-        user_data = {
-            "UserName": user["UserName"],
-            "UserId": user["UserId"],
-            "CreateDate": user["CreateDate"],
-            "UserPolicies": iam_client.list_user_policies(UserName=user["UserName"])["PolicyNames"],
-            "AttachedPolicies": [policy['PolicyName'] for policy in iam_client.list_attached_user_policies(UserName=user["UserName"])["AttachedPolicies"]],
-            "Groups": [group['GroupName'] for group in iam_client.list_groups_for_user(UserName=user["UserName"])["Groups"]],
+        user_name = user["UserName"]
+        user_info = {
+            "UserName": user_name,
+            "UserId": user.get("UserId", ""),
+            "CreateDate": user.get("CreateDate", datetime.now(timezone.utc)),
+            "UserPolicies": [],
+            "AttachedPolicies": [],
+            "Groups": [],
             "AccessKeysLastUsed": [],
-            "LastUpdated": user["CreateDate"]
+            "LastUpdated": datetime.now(timezone.utc)
         }
 
-        access_keys = iam_client.list_access_keys(UserName=user["UserName"])["AccessKeyMetadata"]
-        for key in access_keys:
-            key_info = iam_client.get_access_key_last_used(AccessKeyId=key["AccessKeyId"])
-            user_data["AccessKeysLastUsed"].append({
-                "AccessKeyId": key["AccessKeyId"],
-                "Status": key["Status"],
-                "LastUsedDate": key_info["AccessKeyLastUsed"].get("LastUsedDate")
+        # 사용자 정책 가져오기
+        user_policies = iam_client.list_user_policies(UserName=user_name).get("PolicyNames", [])
+        user_info["UserPolicies"] = user_policies
+
+        # 사용자에 연결된 관리형 정책 가져오기
+        attached_policies = iam_client.list_attached_user_policies(UserName=user_name).get("AttachedPolicies", [])
+        user_info["AttachedPolicies"] = [policy["PolicyName"] for policy in attached_policies]
+
+        # 사용자 그룹 가져오기
+        groups = iam_client.list_groups_for_user(UserName=user_name).get("Groups", [])
+        user_info["Groups"] = [group["GroupName"] for group in groups]
+
+        # 사용자 액세스 키 사용 이력 가져오기
+        access_keys = iam_client.list_access_keys(UserName=user_name).get("AccessKeyMetadata", [])
+        for access_key in access_keys:
+            access_key_id = access_key["AccessKeyId"]
+            key_last_used = iam_client.get_access_key_last_used(AccessKeyId=access_key_id).get("AccessKeyLastUsed", {})
+            user_info["AccessKeysLastUsed"].append({
+                "AccessKeyId": access_key_id,
+                "Status": access_key["Status"],
+                "LastUsedDate": key_last_used.get("LastUsedDate", None)
             })
 
-        iam_users.append(user_data)
+        iam_users.append(user_info)
+    
     return iam_users

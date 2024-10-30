@@ -17,34 +17,44 @@ ec2_client = session.client('ec2')
 
 def get_ec2_instances():
     ec2_instances = []
-    instances = ec2_client.describe_instances()["Reservations"]
+    reservations = ec2_client.describe_instances()["Reservations"]
 
-    for reservation in instances:
+    for reservation in reservations:
         for instance in reservation["Instances"]:
-            instance_data = {
-                "InstanceId": instance["InstanceId"],
-                "InstanceType": instance["InstanceType"],
-                "LaunchTime": instance["LaunchTime"],
-                "State": instance["State"]["Name"],
-                "PublicIpAddress": instance.get("PublicIpAddress"),
-                "PrivateIpAddress": instance.get("PrivateIpAddress"),
-                "VpcId": instance.get("VpcId"),
-                "SubnetId": instance.get("SubnetId"),
-                "SecurityGroups": instance.get("SecurityGroups"),
-                "Tags": instance.get("Tags"),
-                "EbsVolumes": [],
-                "NetworkInterfaces": [],
-                "IamInstanceProfile": instance.get("IamInstanceProfile")
+            instance_info = {
+                "InstanceId": instance.get("InstanceId", ""),
+                "InstanceType": instance.get("InstanceType", ""),
+                "LaunchTime": instance.get("LaunchTime", None),
+                "State": instance.get("State", {}).get("Name", ""),
+                "PublicIpAddress": instance.get("PublicIpAddress", None),
+                "PrivateIpAddress": instance.get("PrivateIpAddress", None),
+                "VpcId": instance.get("VpcId", ""),
+                "SubnetId": instance.get("SubnetId", ""),
+                "SecurityGroups": instance.get("SecurityGroups", []),  # 빈 리스트로 설정
+                "Tags": instance.get("Tags", []),                      # 빈 리스트로 설정
+                "EbsVolumes": [],                                      # 기본값: 빈 리스트
+                "NetworkInterfaces": instance.get("NetworkInterfaces", []),  # 빈 리스트로 설정
+                "IamInstanceProfile": instance.get("IamInstanceProfile", None)
             }
 
-            for block in instance.get("BlockDeviceMappings", []):
-                volume_id = block["Ebs"]["VolumeId"]
-                volume_info = ec2_client.describe_volumes(VolumeIds=[volume_id])["Volumes"][0]
-                instance_data["EbsVolumes"].append(volume_info)
+            # EBS 볼륨 정보 가져오기
+            for block_device in instance.get("BlockDeviceMappings", []):
+                ebs_info = block_device.get("Ebs", {})
+                instance_info["EbsVolumes"].append({
+                    "VolumeId": ebs_info.get("VolumeId", ""),
+                    "Iops": ebs_info.get("Iops", None),
+                    "VolumeType": ebs_info.get("VolumeType", ""),
+                    "MultiAttachEnabled": ebs_info.get("MultiAttachEnabled", False),
+                    "Throughput": ebs_info.get("Throughput", None),
+                    "Size": ebs_info.get("Size", None),
+                    "SnapshotId": ebs_info.get("SnapshotId", ""),
+                    "AvailabilityZone": ebs_info.get("AvailabilityZone", ""),
+                    "State": ebs_info.get("State", ""),
+                    "CreateTime": ebs_info.get("CreateTime", None),
+                    "Attachments": ebs_info.get("Attachments", []),
+                    "Encrypted": ebs_info.get("Encrypted", False)
+                })
 
-            for ni in instance.get("NetworkInterfaces", []):
-                network_info = ec2_client.describe_network_interfaces(NetworkInterfaceIds=[ni["NetworkInterfaceId"]])["NetworkInterfaces"][0]
-                instance_data["NetworkInterfaces"].append(network_info)
+            ec2_instances.append(instance_info)
 
-            ec2_instances.append(instance_data)
     return ec2_instances

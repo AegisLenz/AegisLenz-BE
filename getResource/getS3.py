@@ -2,6 +2,7 @@ import boto3
 from dotenv import load_dotenv
 import os
 from botocore.exceptions import ClientError
+import json
 
 # .env 파일 로드
 load_dotenv()
@@ -26,24 +27,24 @@ def get_s3_buckets():
             "Name": bucket_name,
             "CreationDate": bucket["CreationDate"],
             "Location": None,
-            "ACL": None,
-            "Policy": None,
+            "ACL": [],
+            "Policy": {},
             "Logging": None,
             "Versioning": None,
-            "Tags": None
+            "Tags": []
         }
 
         try:
             bucket_info["Location"] = s3_client.get_bucket_location(Bucket=bucket_name).get("LocationConstraint")
-            bucket_info["ACL"] = s3_client.get_bucket_acl(Bucket=bucket_name).get("Grants")
+            bucket_info["ACL"] = s3_client.get_bucket_acl(Bucket=bucket_name).get("Grants", [])
             
             # 버킷 정책 가져오기
             try:
                 policy = s3_client.get_bucket_policy(Bucket=bucket_name).get("Policy")
-                bucket_info["Policy"] = policy
+                bucket_info["Policy"] = json.loads(policy) if policy else {}
             except ClientError as e:
                 if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
-                    bucket_info["Policy"] = "No bucket policy"
+                    bucket_info["Policy"] = {}
                 else:
                     print(f"Error fetching policy for {bucket_name}: {e}")
             
@@ -52,11 +53,11 @@ def get_s3_buckets():
 
             # 버킷 태그 가져오기
             try:
-                tags = s3_client.get_bucket_tagging(Bucket=bucket_name).get("TagSet")
+                tags = s3_client.get_bucket_tagging(Bucket=bucket_name).get("TagSet", [])
                 bucket_info["Tags"] = tags
             except ClientError as e:
                 if e.response['Error']['Code'] == 'NoSuchTagSet':
-                    bucket_info["Tags"] = "No tags"
+                    bucket_info["Tags"] = []
                 else:
                     print(f"Error fetching tags for {bucket_name}: {e}")
 
