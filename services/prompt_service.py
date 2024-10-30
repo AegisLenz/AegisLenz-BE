@@ -86,7 +86,6 @@ class PromptService:
         response = await self.receive_gpt_response("DB", query)
 
         db_query = self.clean_response(response)
-        logger.info(db_query)
         if db_query:
             db_result = await self.prompt_repository.find_db_document(db_query)
             return db_result
@@ -130,11 +129,9 @@ class PromptService:
             persona_response = dashboards
         elif classification_result in ["onlyES", "onlyMDB", "policy"]:
             persona_response = await self.generate_response_by_persona(classification_result, query)
-            persona_response = json.dumps(dashboards) + "\n" + persona_response
+            persona_response = json.dumps(dashboards) + "\n" + json.dumps(persona_response)
         else:
             raise HTTPException(status_code=500, detail="Failed classify.")
-        
-        logger.info(persona_response)
 
         # 요약 데이터
         stream = self.gpt_client.chat.completions.create(

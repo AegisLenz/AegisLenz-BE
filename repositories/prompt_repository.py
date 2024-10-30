@@ -9,17 +9,17 @@ from models.prompt_model import PromptMessage, PromptSession, Message
 from elasticsearch import AsyncElasticsearch
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
+from core.logging_config import setup_logger
+
+logger = setup_logger()
+load_dotenv()
 
 class PromptRepository:
     def __init__(self):
-        load_dotenv()
-        self.host_ip = os.getenv("HOST_IP")
-        self.elasticsearch_port = os.getenv("ELASTICSEARCH_PORT")
-        self.index_name = os.getenv("INDEX_NAME")
-        
         self.redis_client = RedisDriver()
-        self.es_client = AsyncElasticsearch(f"http://{self.host_ip}:{self.elasticsearch_port}")
+        self.es_client = AsyncElasticsearch(f"http://{os.getenv("HOST_IP")}:{os.getenv("ELASTICSEARCH_PORT")}")
         self.mongodb_engine = mongodb.engine
+        self.mongodb_client = mongodb.client
 
     async def create_prompt(self):
         try:
@@ -36,7 +36,7 @@ class PromptRepository:
 
     async def find_es_document(self, es_query):
         try:
-            query_result = await self.es_client.search(index=self.index_name, query=es_query)
+            query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
             return json.dumps(query_result['hits']['hits'], ensure_ascii=False)
         except HTTPException as e:
             raise e
@@ -45,14 +45,14 @@ class PromptRepository:
 
     async def find_db_document(self, db_query):
         try:
-            parsed_query = json.loads(db_query)
-
+            db_query = json.loads(db_query)
+            
             # 컬렉션 이름과 find 조건 추출
-            collection_name = parsed_query.get("collection")
-            find_filter = parsed_query.get("find", {})
+            collection_name = db_query.get("collection")
+            find_filter = db_query.get("find", {})
 
-            # MongoDB에서 컬렉션 접근 및 조회
-            collection = self.database[collection_name]
+            # MongoDB 컬렉션 접근 및 조회
+            collection = self.mongodb_client[collection_name]
             cursor = collection.find(find_filter)
             result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
             return result
