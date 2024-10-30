@@ -6,9 +6,6 @@ from fastapi import HTTPException, Depends
 from datetime import datetime, timedelta, timezone
 from repositories.prompt_repository import PromptRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, CreatePromptResponseSchema
-from core.logging_config import setup_logger
-
-logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends()):
@@ -103,18 +100,17 @@ class PromptService:
         # 분류기 데이터
         classify_response = await self.classify_persona(query)
         classify_data = json.loads(classify_response)
-        classification_result = classify_data.get("topics")
-        logger.info(classification_result)
+        persona_type = classify_data.get("topics")
         
         # 대시보드 데이터
         dashboards = await self.dashboard_persona(query)
         yield self.create_stream_response(type="DashBoard", data=dashboards)
         
         # 분류기 결과에 따른 페르소나 처리
-        if classification_result == "DashbPr":
+        if persona_type == "DashbPr":
             pass
-        elif classification_result in ["onlyES", "onlyMDB", "policy"]:
-            if classification_result == "onlyES":
+        elif persona_type in ["onlyES", "onlyMDB", "policy"]:
+            if persona_type == "onlyES":
                 es_query, es_result = await self.es_persona(query)
                 persona_response = json.dumps({
                                                 "es_query": es_query,
@@ -122,7 +118,7 @@ class PromptService:
                                             }, ensure_ascii=False)
                 yield self.create_stream_response(type="ESQuery", data=es_query)
                 yield self.create_stream_response(type="ESResult", data=es_result)
-            elif classification_result == "onlyMDB":
+            elif persona_type == "onlyMDB":
                 db_query, db_result = await self.db_persona(query)
                 persona_response = json.dumps({
                                                 "db_query": db_query,
@@ -130,11 +126,10 @@ class PromptService:
                                             }, ensure_ascii=False)
                 yield self.create_stream_response(type="DBQuery", data=db_query)
                 yield self.create_stream_response(type="DBResult", data=db_result)
-            elif classification_result == "policy":
+            elif persona_type == "policy":
                 await self.policy_persona(query)
                 persona_response = json.dumps()
 
-            logger.info(persona_response)
             # 요약 데이터
             stream = self.gpt_client.chat.completions.create(
                 model="gpt-4o-mini",
