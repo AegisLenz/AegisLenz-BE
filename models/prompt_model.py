@@ -1,4 +1,4 @@
-from odmantic import Model, ObjectId
+from odmantic import EmbeddedModel, Model, ObjectId
 from typing import List, Optional
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class PromptSession(Model):
     model_config = {"collection": "PromptSession"}
 
 
-class Message(Model):
+class Message(EmbeddedModel):
     timestamp: datetime
     role: str
     content: Optional[str] = None
