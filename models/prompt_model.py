@@ -9,7 +9,7 @@ class PromptSession(Model):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"collection": "PromptSession"}
+    model_config = {"collection": "prompt_sessions"}
 
 
 class Message(EmbeddedModel):
@@ -22,4 +22,4 @@ class PromptMessage(Model):
     prompt_session_id: ObjectId
     messages: List[Message]
 
-    model_config = {"collection": "PromptMessage"}
+    model_config = {"collection": "prompt_messages"}
