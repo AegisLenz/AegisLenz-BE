@@ -17,7 +17,7 @@ load_dotenv()
 class PromptRepository:
     def __init__(self):
         self.redis_client = RedisDriver()
-        self.es_client = AsyncElasticsearch(f"http://{os.getenv("HOST_IP")}:{os.getenv("ELASTICSEARCH_PORT")}")
+        self.es_client = AsyncElasticsearch(f"{os.getenv("ES_HOST")}:{os.getenv("ES_PORT")}")
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
