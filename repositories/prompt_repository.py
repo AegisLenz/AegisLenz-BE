@@ -9,9 +9,7 @@ from models.prompt_model import PromptMessage, PromptSession, Message
 from elasticsearch import AsyncElasticsearch
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
-from core.logging_config import setup_logger
 
-logger = setup_logger()
 load_dotenv()
 
 class PromptRepository:
@@ -72,7 +70,16 @@ class PromptRepository:
             object_id = ObjectId(prompt_session_id)
             prompt_message = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == object_id)
             if prompt_message:
-                return prompt_message.messages
+                # 각 Message 객체를 JSON 형식으로 변환
+                formatted_history = [
+                    {
+                        "timestamp": msg.timestamp.isoformat() if isinstance(msg.timestamp, datetime) else msg["timestamp"],
+                        "role": msg.role,
+                        "content": msg.content
+                    } if isinstance(msg, Message) else msg
+                    for msg in prompt_message.messages
+                ]
+                return formatted_history
             else:
                 return []
         except HTTPException as e:
@@ -81,12 +88,12 @@ class PromptRepository:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def save_conversation_history(self, prompt_session_id: str, conversation_history: list):
-        try:
+        try:            
             # Redis에 저장
             await self.redis_client.set_key(prompt_session_id, json.dumps(conversation_history, ensure_ascii=False))
             
             # MongoDB에 저장
-            messages = [Message(**msg) for msg in conversation_history]  # 각 메시지를 MongoDB 모델로 변환
+            messages = [msg if isinstance(msg, Message) else Message(**msg) for msg in conversation_history]
             
             object_id = ObjectId(prompt_session_id)
             prompt_message = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == object_id)
