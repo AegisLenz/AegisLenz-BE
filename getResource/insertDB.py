@@ -16,7 +16,7 @@ async def insert_data(user_id):
     
     # UserResource 객체 생성 및 저장
     user_resource = UserResource(
-        id=user_id,
+        user_id=user_id,
         resource=resource  # 중첩된 Resource 객체를 포함하여 저장
     )
     print(user_resource)
