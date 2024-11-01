@@ -27,11 +27,11 @@ class PromptChatStreamResponseSchema(BaseModel):
         }
 
 class CreatePromptResponseSchema(BaseModel):
-    prompt_id: ObjectId
+    prompt_session_id: ObjectId
 
     class Config:
         json_schema_extra = {
             "example": {
-                "prompt_id": "1",
+                "prompt_session_id": "1",
             }
         }

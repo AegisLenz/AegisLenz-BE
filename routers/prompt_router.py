@@ -8,8 +8,8 @@ router = APIRouter(prefix="/prompt", tags=["prompt"])
 
 @router.post("/", response_model=CreatePromptResponseSchema)
 async def create_prompt(prompt_service=Depends(prompt_service.PromptService)):
-    prompt_id = await prompt_service.create_prompt()
-    response = CreatePromptResponseSchema(prompt_id=prompt_id)
+    prompt_session_id = await prompt_service.create_prompt()
+    response = CreatePromptResponseSchema(prompt_session_id=prompt_session_id)
     return response
 
 
