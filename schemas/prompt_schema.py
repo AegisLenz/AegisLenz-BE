@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from odmantic import ObjectId
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 class PromptChatRequestSchema(BaseModel):
     user_input: str  # 사용자 요청 메시지
@@ -33,5 +33,19 @@ class CreatePromptResponseSchema(BaseModel):
         json_schema_extra = {
             "example": {
                 "prompt_session_id": "1",
+            }
+        }
+
+class GetAllPromptResponseSchema(BaseModel):
+    prompt_ids: List[str]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "prompt_ids": [
+                    "507f1f77bcf86cd799439011",
+                    "507f191e810c19729de860ea",
+                    "507f1f77bcf86cd799439012"
+                ]
             }
         }

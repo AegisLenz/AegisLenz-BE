@@ -4,11 +4,15 @@ import datetime
 from odmantic import ObjectId
 from dotenv import load_dotenv
 from fastapi import HTTPException
+from elasticsearch import AsyncElasticsearch
 from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptMessage, PromptSession, Message
-from elasticsearch import AsyncElasticsearch
+from schemas.prompt_schema import GetAllPromptResponseSchema
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
+from core.logging_config import setup_logger
+
+logger = setup_logger()
 
 load_dotenv()
 
@@ -31,6 +35,20 @@ class PromptRepository:
             raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+    async def get_all_prompt(self):
+        try:
+            # prompts = await self.mongodb_engine.find(PromptSession)
+            collection = self.mongodb_client["prompt_sessions"]
+            cursor = collection.find()
+            prompts = await cursor.to_list(length=100) 
+            logger.info(prompts)
+            prompt_ids = [str(prompt.id) for prompt in prompts]
+            return GetAllPromptResponseSchema(prompt_ids=prompt_ids)
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def validate_prompt_session(self, prompt_session_id: str):
         if not ObjectId.is_valid(prompt_session_id):

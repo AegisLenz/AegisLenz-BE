@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Body
 from fastapi.responses import StreamingResponse
 from services import prompt_service
-from schemas.prompt_schema import PromptChatRequestSchema, PromptChatStreamResponseSchema, CreatePromptResponseSchema
+from schemas.prompt_schema import PromptChatRequestSchema, PromptChatStreamResponseSchema, CreatePromptResponseSchema, GetAllPromptResponseSchema
 
 router = APIRouter(prefix="/prompt", tags=["prompt"])
 
@@ -11,6 +11,11 @@ async def create_prompt(prompt_service=Depends(prompt_service.PromptService)):
     prompt_session_id = await prompt_service.create_prompt()
     response = CreatePromptResponseSchema(prompt_session_id=prompt_session_id)
     return response
+
+
+@router.get("/", response_model=GetAllPromptResponseSchema)
+async def get_all_prompt(prompt_service=Depends(prompt_service.PromptService)):
+    return await prompt_service.get_all_prompt()
 
 
 @router.post("/{prompt_session_id}/chat", response_model=PromptChatStreamResponseSchema)

@@ -40,7 +40,10 @@ class PromptService:
             return f"Default prompt for {file_path}"
     
     async def create_prompt(self):
-        return await self.prompt_repository.create_prompt()    
+        return await self.prompt_repository.create_prompt()
+
+    async def get_all_prompt(self):
+        return await self.prompt_repository.get_all_prompt()
 
     def _clean_streaming_chunk(self, chunk):
         choices = getattr(chunk, "choices", None)
