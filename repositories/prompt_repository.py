@@ -32,6 +32,14 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+    async def validate_prompt_session(self, prompt_session_id: str):
+        if not ObjectId.is_valid(prompt_session_id):
+            raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
+ 
+        prompt_session = await self.mongodb_engine.find_one(PromptSession, PromptSession.id == ObjectId(prompt_session_id))
+        if prompt_session is None:
+            raise HTTPException(status_code=404, detail="Prompt session not found")
+
     async def find_es_document(self, es_query):
         try:
             query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)

@@ -148,6 +148,16 @@ class PromptService:
         # 스트리밍 완료 메시지 전송
         yield self._create_stream_response(status="complete")
 
-    async def handle_chatgpt_conversation(self, user_input, prompt_id):
-        async for chunk in self.process_prompt(user_input, prompt_id):
-            yield chunk
+    async def handle_chatgpt_conversation(self, user_input, prompt_session_id):
+        try:
+            # PromptSession 아이디 유효성 확인
+            await self.prompt_repository.validate_prompt_session(prompt_session_id)
+
+            # 프롬프트 처리 및 응답 스트리밍
+            async for chunk in self.process_prompt(user_input, prompt_session_id):
+                yield chunk
+
+        except HTTPException as e:
+            yield json.dumps({"error": e.detail, "status_code": e.status_code})
+        except Exception as e:
+            yield json.dumps({"error": str(e), "status_code": 500})
