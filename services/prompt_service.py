@@ -66,11 +66,10 @@ class PromptService:
         return json.dumps(response.dict(), ensure_ascii=False) + "\n"
 
     async def _classify_persona(self, query):
-        return await self._receive_gpt_response("Classify", query)
-
-    async def _dashboard_persona(self, query):
-        dashboards = await self._receive_gpt_response("DashBoard", query)
-        return json.loads(dashboards).get("selected_dashboards")
+        response = await self._receive_gpt_response("Classify", query)
+        responss_data = json.loads(response)
+        persona_type = responss_data.get("topics")
+        return persona_type
 
     async def _es_persona(self, query):
         es_query = await self._receive_gpt_response("ES", query)
@@ -100,58 +99,49 @@ class PromptService:
         conversation_history.append({"role": "user", "content": user_input, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
 
         # 분류기 데이터
-        classify_response = await self._classify_persona(query)
-        classify_data = json.loads(classify_response)
-        persona_type = classify_data.get("topics")
-        
-        # 대시보드 데이터
-        dashboards = await self._dashboard_persona(query)
-        yield self._create_stream_response(type="DashBoard", data=dashboards)
+        persona_type = await self._classify_persona(query)
         
         # 분류기 결과에 따른 페르소나 처리
-        if persona_type == "DashbPr":
-            pass
-        elif persona_type in ["onlyES", "onlyMDB", "policy"]:
-            if persona_type == "onlyES":
-                es_query, es_result = await self._es_persona(query)
-                persona_response = json.dumps({
-                                                "es_query": es_query,
-                                                "es_result": es_result
-                                            }, ensure_ascii=False)
-                yield self._create_stream_response(type="ESQuery", data=es_query)
-                yield self._create_stream_response(type="ESResult", data=es_result)
-            elif persona_type == "onlyMDB":
-                db_query, db_result = await self._db_persona(query)
-                persona_response = json.dumps({
-                                                "db_query": db_query,
-                                                "db_result": db_result
-                                            }, ensure_ascii=False)
-                yield self._create_stream_response(type="DBQuery", data=db_query)
-                yield self._create_stream_response(type="DBResult", data=db_result)
-            elif persona_type == "policy":
-                await self._policy_persona(query)
-                persona_response = json.dumps()
-
-            # 요약 데이터
-            stream = self.gpt_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[query, {"role": "assistant", "content": persona_response}],
-                stream=True,
-            )
-
-            # 스트리밍 응답 처리
-            assistant_response = ""
-            for chunk in stream:
-                clean_answer = self._clean_streaming_chunk(chunk)
-                if clean_answer:
-                    assistant_response += clean_answer
-                    yield self._create_stream_response(type="Summary", data=clean_answer)
-
-            # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 합쳐 히스토리에 저장
-            conversation_history.append({"role": "assistant", "content": assistant_response, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
+        if persona_type == "ES":
+            es_query, es_result = await self._es_persona(query)
+            persona_response = json.dumps({
+                                            "es_query": es_query,
+                                            "es_result": es_result
+                                        }, ensure_ascii=False)
+            yield self._create_stream_response(type="ESQuery", data=es_query)
+            yield self._create_stream_response(type="ESResult", data=es_result)
+        elif persona_type == "DB":
+            db_query, db_result = await self._db_persona(query)
+            persona_response = json.dumps({
+                                            "db_query": db_query,
+                                            "db_result": db_result
+                                        }, ensure_ascii=False)
+            yield self._create_stream_response(type="DBQuery", data=db_query)
+            yield self._create_stream_response(type="DBResult", data=db_result)
+        elif persona_type == "Policy":
+            await self._policy_persona(query)
+            persona_response = json.dumps()
         else:
             raise HTTPException(status_code=500, detail="Failed Classify.")
         
+        # 요약 데이터
+        stream = self.gpt_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[query, {"role": "assistant", "content": persona_response}],
+            stream=True,
+        )
+
+        # 스트리밍 응답 처리
+        assistant_response = ""
+        for chunk in stream:
+            clean_answer = self._clean_streaming_chunk(chunk)
+            if clean_answer:
+                assistant_response += clean_answer
+                yield self._create_stream_response(type="Summary", data=clean_answer)
+
+        # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 합쳐 히스토리에 저장
+        conversation_history.append({"role": "assistant", "content": assistant_response, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
+    
         # DB에 대화 히스토리 저장
         await self.prompt_repository.save_conversation_history(prompt_session_id, conversation_history)
  
