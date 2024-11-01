@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import boto3
 from dotenv import load_dotenv
 import os
@@ -25,12 +25,12 @@ def get_iam_users():
         user_info = {
             "UserName": user_name,
             "UserId": user.get("UserId", ""),
-            "CreateDate": user.get("CreateDate", datetime.now(timezone.utc)),
+            "CreateDate": user.get("CreateDate", datetime.now(timezone(timedelta(hours=9)))),
             "UserPolicies": [],
             "AttachedPolicies": [],
             "Groups": [],
             "AccessKeysLastUsed": [],
-            "LastUpdated": datetime.now(timezone.utc)
+            "LastUpdated": user.get("LastUpdated", datetime.now(timezone(timedelta(hours=9))))
         }
 
         # 사용자 정책 가져오기
