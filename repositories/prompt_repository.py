@@ -38,13 +38,21 @@ class PromptRepository:
 
     async def get_all_prompt(self):
         try:
-            # prompts = await self.mongodb_engine.find(PromptSession)
-            collection = self.mongodb_client["prompt_sessions"]
-            cursor = collection.find()
-            prompts = await cursor.to_list(length=100) 
-            logger.info(prompts)
+            prompts = await self.mongodb_engine.find(PromptSession)
             prompt_ids = [str(prompt.id) for prompt in prompts]
             return GetAllPromptResponseSchema(prompt_ids=prompt_ids)
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def get_prompt_contents(self, prompt_session_id: str):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
+            if prompt_session and hasattr(prompt_session, "messages"):
+                prompt_contents = [message.content for message in prompt_session.messages]
+                return prompt_contents
+            return []
         except HTTPException as e:
             raise e
         except Exception as e:

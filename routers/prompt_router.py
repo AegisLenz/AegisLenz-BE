@@ -18,6 +18,11 @@ async def get_all_prompt(prompt_service=Depends(prompt_service.PromptService)):
     return await prompt_service.get_all_prompt()
 
 
+@router.get("/{prompt_session_id}")
+async def get_prompt_contents(prompt_session_id: str, prompt_service=Depends(prompt_service.PromptService)):
+    return await prompt_service.get_prompt_contents(prompt_session_id)
+
+
 @router.post("/{prompt_session_id}/chat", response_model=PromptChatStreamResponseSchema)
 async def chat_sse(prompt_session_id: str, request: PromptChatRequestSchema = Body(...), prompt_service=Depends(prompt_service.PromptService)):
     user_input = request.user_input

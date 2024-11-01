@@ -45,6 +45,9 @@ class PromptService:
     async def get_all_prompt(self):
         return await self.prompt_repository.get_all_prompt()
 
+    async def get_prompt_contents(self, prompt_session_id: str):
+        return await self.prompt_repository.get_prompt_contents(prompt_session_id)
+
     def _clean_streaming_chunk(self, chunk):
         choices = getattr(chunk, "choices", None)
         return choices[0].delta.content if choices and choices[0].delta.content else None
