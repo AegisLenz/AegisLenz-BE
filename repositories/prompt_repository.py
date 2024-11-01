@@ -50,8 +50,7 @@ class PromptRepository:
         try:
             prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
             if prompt_session and hasattr(prompt_session, "messages"):
-                prompt_contents = [message.content for message in prompt_session.messages]
-                return prompt_contents
+                return prompt_session.messages
             return []
         except HTTPException as e:
             raise e
