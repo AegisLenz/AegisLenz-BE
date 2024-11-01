@@ -56,11 +56,11 @@ class S3_Bucket(EmbeddedModel):
     Versioning: Optional[str]
     Tags: Optional[List[dict]]
 
-class Resource(EmbeddedModel):  # EmbeddedModel로 수정
+class Asset(EmbeddedModel):  # EmbeddedModel로 수정
     IAM: List[IAMUser]
     EC2: List[EC2]
     S3: List[S3_Bucket]
 
-class UserResource(Model):  # UserResource는 그대로 Model로 유지
+class UserAsset(Model):  # UserResource는 그대로 Model로 유지
     user_id: str
-    resource: Resource  # 임베디드로 Resource 포함
+    resource: Asset  # 임베디드로 Resource 포함
