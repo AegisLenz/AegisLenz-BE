@@ -14,6 +14,7 @@ class IAMUser(EmbeddedModel):
     UserPolicies: List[str]
     AttachedPolicies: List[str]
     Groups: List[str]
+    PasswordLastUsed: Optional[datetime]
     AccessKeysLastUsed: List[AccessKey]
     LastUpdated: Optional[datetime]
 
@@ -61,6 +62,6 @@ class Asset(EmbeddedModel):  # EmbeddedModel로 수정
     EC2: List[EC2]
     S3: List[S3_Bucket]
 
-class UserAsset(Model):  # UserResource는 그대로 Model로 유지
+class UserAsset(Model):
     user_id: str
-    resource: Asset  # 임베디드로 Resource 포함
+    asset: Asset
