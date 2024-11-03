@@ -15,7 +15,9 @@ async def create_prompt(prompt_service=Depends(prompt_service.PromptService)):
 
 @router.get("/", response_model=GetAllPromptResponseSchema)
 async def get_all_prompt(prompt_service=Depends(prompt_service.PromptService)):
-    return await prompt_service.get_all_prompt()
+    prompts = await prompt_service.get_all_prompt()
+    response = GetAllPromptResponseSchema(prompt_ids=prompts)
+    return response
 
 
 @router.get("/{prompt_session_id}")

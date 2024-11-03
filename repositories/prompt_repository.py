@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from elasticsearch import AsyncElasticsearch
 from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptMessage, PromptSession, Message
-from schemas.prompt_schema import GetAllPromptResponseSchema
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
 
@@ -20,7 +19,7 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self):
+    async def create_prompt(self) -> str:
         try:
             prompt_session = PromptSession(
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
@@ -31,15 +30,15 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def get_all_prompt(self):
+    async def get_all_prompt(self) -> list:
         try:
             prompts = await self.mongodb_engine.find(PromptSession)
             prompt_ids = [str(prompt.id) for prompt in prompts]
-            return GetAllPromptResponseSchema(prompt_ids=prompt_ids)
+            return prompt_ids
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def get_prompt_contents(self, prompt_session_id: str):
+    async def get_prompt_contents(self, prompt_session_id: str) -> list:
         try:
             prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
             if prompt_session and hasattr(prompt_session, "messages"):
@@ -48,7 +47,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def validate_prompt_session(self, prompt_session_id: str):
+    async def validate_prompt_session(self, prompt_session_id: str) -> None:
         if not ObjectId.is_valid(prompt_session_id):
             raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
  
@@ -56,14 +55,14 @@ class PromptRepository:
         if prompt_session is None:
             raise HTTPException(status_code=404, detail="Prompt session not found")
 
-    async def find_es_document(self, es_query):
+    async def find_es_document(self, es_query) -> list:
         try:
             query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
             return query_result['hits']['hits']
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def find_db_document(self, db_query):
+    async def find_db_document(self, db_query) -> list:
         try:
             db_query = json.loads(db_query)
             
@@ -79,7 +78,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def load_conversation_history(self, prompt_session_id: str):
+    async def load_conversation_history(self, prompt_session_id: str) -> list:
         try:
             # Redis에서 conversation history 조회
             conversation_history = await self.redis_client.get_key(prompt_session_id)
@@ -105,7 +104,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def save_conversation_history(self, prompt_session_id: str, conversation_history: list):
+    async def save_conversation_history(self, prompt_session_id: str, conversation_history: list) -> None:
         try:            
             # Redis에 저장
             await self.redis_client.set_key(prompt_session_id, json.dumps(conversation_history, ensure_ascii=False))
