@@ -37,7 +37,7 @@ class PromptService:
             with open(file_path, "r", encoding="utf-8") as file:
                 return file.read()
         except FileNotFoundError:
-            return f"Default prompt for {file_path}"
+            raise HTTPException(status_code=500, detail=f"Prompt file not found: {file_path}")
     
     async def create_prompt(self):
         return await self.prompt_repository.create_prompt()
@@ -46,6 +46,7 @@ class PromptService:
         return await self.prompt_repository.get_all_prompt()
 
     async def get_prompt_contents(self, prompt_session_id: str):
+        await self.prompt_repository.validate_prompt_session(prompt_session_id)
         return await self.prompt_repository.get_prompt_contents(prompt_session_id)
 
     def _clean_streaming_chunk(self, chunk):
