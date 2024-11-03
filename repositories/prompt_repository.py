@@ -10,9 +10,6 @@ from models.prompt_model import PromptMessage, PromptSession, Message
 from schemas.prompt_schema import GetAllPromptResponseSchema
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
-from core.logging_config import setup_logger
-
-logger = setup_logger()
 
 load_dotenv()
 
@@ -31,8 +28,6 @@ class PromptRepository:
             )
             result = await self.mongodb_engine.save(prompt_session)
             return result.id
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
@@ -41,8 +36,6 @@ class PromptRepository:
             prompts = await self.mongodb_engine.find(PromptSession)
             prompt_ids = [str(prompt.id) for prompt in prompts]
             return GetAllPromptResponseSchema(prompt_ids=prompt_ids)
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
@@ -52,8 +45,6 @@ class PromptRepository:
             if prompt_session and hasattr(prompt_session, "messages"):
                 return prompt_session.messages
             return []
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
@@ -68,9 +59,7 @@ class PromptRepository:
     async def find_es_document(self, es_query):
         try:
             query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
-            return json.dumps(query_result['hits']['hits'], ensure_ascii=False)
-        except HTTPException as e:
-            raise e
+            return query_result['hits']['hits']
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
@@ -87,8 +76,6 @@ class PromptRepository:
             cursor = collection.find(find_filter)
             result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
             return result
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
@@ -115,8 +102,6 @@ class PromptRepository:
                 return formatted_history
             else:
                 return []
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
@@ -143,7 +128,5 @@ class PromptRepository:
             
             await self.mongodb_engine.save(prompt_session)
 
-        except HTTPException as e:
-            raise e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
