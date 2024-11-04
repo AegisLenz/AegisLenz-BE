@@ -13,9 +13,10 @@ session = boto3.Session(
     region_name=os.getenv("AWS_REGION")
 )
 
-# IAM 클라이언트 생성
+# IAM 및 CloudTrail 클라이언트 생성
 iam_client = session.client('iam')
 
+# IAM 사용자 정보를 가져오는 함수
 def get_iam_users():
     iam_users = []
     users = iam_client.list_users()["Users"]
@@ -25,12 +26,13 @@ def get_iam_users():
         user_info = {
             "UserName": user_name,
             "UserId": user.get("UserId", ""),
-            "CreateDate": user.get("CreateDate", datetime.now(timezone(timedelta(hours=9)))),
+            "CreateDate": user.get("CreateDate"),
             "UserPolicies": [],
             "AttachedPolicies": [],
             "Groups": [],
+            "PasswordLastUsed": user.get("PasswordLastUsed"),
             "AccessKeysLastUsed": [],
-            "LastUpdated": user.get("LastUpdated", datetime.now(timezone(timedelta(hours=9))))
+            "LastUpdated": user.get("LastUpdated")
         }
 
         # 사용자 정책 가져오기
