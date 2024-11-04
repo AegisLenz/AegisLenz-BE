@@ -19,7 +19,6 @@ class PromptService:
         prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts')
         prompt_files = {
             "Classify": "ClassifyPr.txt",
-            "DashBoard": "DashbPr.txt",
             "ES": "onlyES.txt",
             "DB": "onlyMDB.txt",
             "Policy": "policy.txt",
