@@ -61,6 +61,3 @@ def get_iam_users():
         iam_users.append(user_info)
     
     return iam_users
-
-
-print(get_iam_users())
