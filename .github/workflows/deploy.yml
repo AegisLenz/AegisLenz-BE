@@ -28,5 +28,6 @@ jobs:
           script: |
             cd AegisLenz/AegisLenz-BE
             git pull origin dev
+            git submodule update --init --recursive
             docker-compose -p aegislenz down
             docker-compose -p aegislenz up --build -d
