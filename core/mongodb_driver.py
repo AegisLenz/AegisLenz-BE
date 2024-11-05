@@ -34,9 +34,9 @@ class MongoDB:
             self.client.close()
         self.engine = None
 
-    async def get_engine(self):
-        yield self.engine
-    
+    def get_engine(self):
+        return self.engine
+
 
 # 싱글턴 인스턴스 생성
 mongodb = MongoDB()

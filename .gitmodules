@@ -1,0 +1,3 @@
+[submodule "iam-policy"]
+	path = iam-policy
+	url = https://github.com/AegisLenz/iam-policy.git
