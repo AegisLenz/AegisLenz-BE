@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          submodules: true
+          submodules: recursive
 
       # 서버에 SSH로 접속하여 환경설정 및 배포
       - name: SSH into Server and Deploy
