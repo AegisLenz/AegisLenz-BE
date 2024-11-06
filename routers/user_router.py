@@ -10,8 +10,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 #     new_user = await user_service.save_user(engine)
 #     return new_user
 
-#특정 사용자 정보의 EC2 정보를 조회하는 API
-@router.get("/asset/{user_id}/ec2")
-async def get_user_asset(user_id: str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
-    user_asset = await user_service.get_user_asset(user_id, engine)
+#특정 사용자 정보를 조회하는 API
+@router.get("/asset/{user_id}/{Assettype}")
+async def get_user_ec2_asset(user_id: str, Assettype:str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
+    user_asset = await user_service.get_user_ec2_asset(user_id, Assettype, engine)
     return user_asset
