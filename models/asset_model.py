@@ -65,3 +65,5 @@ class Asset(EmbeddedModel):  # EmbeddedModel로 수정
 class UserAsset(Model):
     user_id: str
     asset: Asset
+    
+    model_config = {"collection": "user_assets"}
