@@ -11,7 +11,17 @@ router = APIRouter(prefix="/users", tags=["users"])
 #     return new_user
 
 #특정 사용자 정보를 조회하는 API
-@router.get("/asset/{user_id}/{Assettype}")
-async def get_user_ec2_asset(user_id: str, Assettype:str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
-    user_asset = await user_service.get_user_ec2_asset(user_id, Assettype, engine)
+@router.get("/asset/{user_id}/EC2")
+async def get_user_ec2_asset(user_id: str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
+    user_asset = await user_service.get_user_ec2_asset(user_id, engine)
+    return user_asset
+
+@router.get("/asset/{user_id}/IAM")
+async def get_user_IAM_asset(user_id: str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
+    user_asset = await user_service.get_user_IAM_asset(user_id, engine)
+    return user_asset
+
+@router.get("/asset/{user_id}/S3")
+async def get_user_S3_asset(user_id: str, user_service: user_service = Depends(user_service.UserService), engine=Depends(mongodb.get_engine)):
+    user_asset = await user_service.get_user_S3_asset(user_id, engine)
     return user_asset
