@@ -20,9 +20,9 @@ async def insert_data(user_id):
         asset=asset  # 중첩된 Asset 객체를 포함하여 저장
     )
     print(user_asset)
-    async for engine in mongodb.get_engine():
-        await engine.save(user_asset)  # UserAsset 저장 시 Asset 필드도 중첩 저장
-        print("Data inserted/updated in MongoDB")
+    engine = mongodb.get_engine()
+    await engine.save(user_asset)  # UserAsset 저장 시 Asset 필드도 중첩 저장
+    print("Data inserted/updated in MongoDB")
 
 # 실행 코드
 if __name__ == "__main__":
