@@ -2,11 +2,12 @@ import os
 import json
 import datetime
 from odmantic import ObjectId
+from pymongo import ASCENDING
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from elasticsearch import AsyncElasticsearch
 from datetime import datetime, timedelta, timezone
-from models.prompt_model import PromptMessage, PromptSession, Message
+from models.prompt_model import PromptMessage, PromptSession, Message, PromptChat
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
 
@@ -38,12 +39,16 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def get_prompt_contents(self, prompt_session_id: str) -> list:
+    async def get_prompt_chats(self, prompt_session_id: str) -> list:
         try:
-            prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
-            if prompt_session and hasattr(prompt_session, "messages"):
-                return prompt_session.messages
-            return []
+            prompt_chats = await self.mongodb_engine.find(
+                PromptChat, 
+                PromptChat.prompt_session_id == ObjectId(prompt_session_id)
+            ).sort("created_at", ASCENDING)
+            if prompt_chats:
+                return prompt_chats
+            else:
+                return []
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 

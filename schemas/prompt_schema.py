@@ -49,3 +49,21 @@ class GetAllPromptResponseSchema(BaseModel):
                 ]
             }
         }
+
+class GetPromptContentsSchema():
+    role: str  # assistant or user
+    content: str
+
+class GetPromptContentsResponseSchema(BaseModel):
+    chats: List[GetPromptContentsSchema]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "chats": [
+                    {"role": "user", "content": "자산 보여줘"},
+                    {"role": "assistant", "content": "자산 정보입니다"},
+                    {"role": "user", "content": "감사합니다"}
+                ]
+            }
+        }
