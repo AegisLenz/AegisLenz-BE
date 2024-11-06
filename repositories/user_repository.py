@@ -13,13 +13,11 @@ class UserRepository:
         new_user = await engine.save(self.user)
         return new_user
     
-    async def get_user_ec2_asset(self, user_id: str, Assettype: str,engine):
+    async def get_user_asset(self, user_id: str, Assettype: str,engine):
         user_asset = await engine.find_one(UserAsset, {"user_id": user_id})
         if not user_asset:
             return {"error": "User asset not found"}
 
-
-        # EC2, S3_Bucket, IAMUser
         # 반환 형식 { EC2 : [{}, {}, {}] }
         if Assettype == "EC2":
             return {"EC2": [ec2.dict() for ec2 in user_asset.asset.EC2]}
