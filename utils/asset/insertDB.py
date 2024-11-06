@@ -15,13 +15,13 @@ async def insert_data(user_id):
     asset = Asset(IAM=iam_users, EC2=ec2_instances, S3=s3_buckets)
     
     # UserAsset 객체 생성 및 저장
-    user_asset = UserAsset(
+    user_assets = UserAsset(
         user_id=user_id,
         asset=asset  # 중첩된 Asset 객체를 포함하여 저장
     )
-    print(user_asset)
+    print(user_assets)
     engine = mongodb.get_engine()
-    await engine.save(user_asset)  # UserAsset 저장 시 Asset 필드도 중첩 저장
+    await engine.save(user_assets)  # UserAsset 저장 시 Asset 필드도 중첩 저장
     print("Data inserted/updated in MongoDB")
 
 # 실행 코드
