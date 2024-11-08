@@ -18,6 +18,7 @@ services:
       TZ: Asia/Seoul
       ELASTICSEARCH_HOST: "http://23.23.93.131"
       ELASTICSEARCH_PORT: "9200"
+      PYTHONPATH: /app
     networks:
       - aegislenz-internal
     env_file:

@@ -13,7 +13,8 @@ async def insert_initial_policy_data():
         print("컬렉션이 비어 있습니다. 초기 데이터를 삽입합니다.")
         
         # 상위 디렉터리의 하위 디렉터리 목록 가져오기
-        base_directory = "./iam-policy/AWSDatabase"  # submodule로 설정한 AWS 최소권한정책 DB
+        base_directory = "./iam-policy/AWSDatabase/"  # submodule로 설정한 AWS 최소권한정책 DB
+        print(base_directory)
         directories = [d for d in os.listdir(base_directory) if os.path.isdir(os.path.join(base_directory, d))]
 
         # 각 디렉터리의 하위 파일 목록 가져오기 및 데이터 삽입

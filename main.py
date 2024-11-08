@@ -6,11 +6,13 @@ from utils.insert_initial_data import insert_initial_policy_data
 
 logger = setup_logger()
 
-app = FastAPI(root_path="/api/v1")
+# FastAPI 인스턴스 생성
+app = FastAPI()
 
-app.include_router(user_router.router)
-app.include_router(prompt_router.router)
-app.include_router(bert_router.router)
+# 라우터 등록
+app.include_router(user_router.router, prefix="/user")
+app.include_router(prompt_router.router, prefix="/prompt")
+app.include_router(bert_router.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
