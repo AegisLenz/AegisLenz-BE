@@ -19,9 +19,12 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self) -> str:
+    async def create_prompt(self, attack_detection_id: Optional[str] = None) -> str:
         try:
+            attack_detection_id = ObjectId(attack_detection_id) if attack_detection_id else None
+            
             prompt_session = PromptSession(
+                attack_detection_id=attack_detection_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )

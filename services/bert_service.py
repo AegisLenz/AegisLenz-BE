@@ -2,7 +2,6 @@ import os
 import openai
 from fastapi import HTTPException, Depends
 from dotenv import load_dotenv
-from datetime import datetime, timedelta, timezone
 from ai.predict import BERTPredictor
 from services.asset_service import AssetService
 from services.prompt_service import PromptService
@@ -18,8 +17,7 @@ class BERTService:
         self.prompt_repository = prompt_repository
         
         load_dotenv()
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.gpt_client = openai.OpenAI(api_key=self.api_key)
+        self.gpt_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.init_prompt = self._load_all_prompts()
 
     def _load_all_prompts(self):
@@ -85,7 +83,9 @@ class BERTService:
         least_privilege_policy = await self._create_least_privilege_policy()
 
         # 3. 프롬프트 생성 및 관련 정보 저장
-        prompt_session_id = await self.prompt_repository.create_prompt()
+        attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy)
+        
+        prompt_session_id = await self.prompt_repository.create_prompt(attack_detection_id)
         attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
         await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content, recommend_questions)
-        await self.bert_repository.save_attack_detection(report, least_privilege_policy)
+
