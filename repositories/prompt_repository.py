@@ -42,13 +42,12 @@ class PromptRepository:
     async def get_prompt_chats(self, prompt_session_id: str) -> list:
         try:
             prompt_chats = await self.mongodb_engine.find(
-                PromptChat, 
-                PromptChat.prompt_session_id == ObjectId(prompt_session_id)
-            ).sort("created_at", ASCENDING)
-            if prompt_chats:
-                return prompt_chats
-            else:
-                return []
+                PromptChat,
+                PromptChat.prompt_session_id == ObjectId(prompt_session_id),
+                sort=PromptChat.created_at
+            )
+            return prompt_chats if prompt_chats else []
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 

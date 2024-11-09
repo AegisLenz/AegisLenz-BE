@@ -24,7 +24,7 @@ async def get_all_prompt(prompt_service=Depends(prompt_service.PromptService)):
 async def get_prompt_chats(prompt_session_id: str, prompt_service=Depends(prompt_service.PromptService)):
     prompt_chats = await prompt_service.get_prompt_chats(prompt_session_id)
     chats = [
-        GetPromptContentsSchema(role=chat.role, content=chat.message)  # 'role'과 'message' 필드를 적절히 수정
+        GetPromptContentsSchema(role=chat.role, content=chat.content)
         for chat in prompt_chats
     ]
     return GetPromptContentsResponseSchema(chats=chats)
@@ -32,5 +32,8 @@ async def get_prompt_chats(prompt_session_id: str, prompt_service=Depends(prompt
 
 @router.post("/{prompt_session_id}/chat", response_model=PromptChatStreamResponseSchema)
 async def chat_sse(prompt_session_id: str, request: PromptChatRequestSchema = Body(...), prompt_service=Depends(prompt_service.PromptService)):
-    user_input = request.user_input
-    return StreamingResponse(prompt_service.handle_chatgpt_conversation(user_input, prompt_session_id), media_type="text/event-stream")
+    user_question = request.user_question
+    return StreamingResponse(
+        prompt_service.handle_chatgpt_conversation(user_question, prompt_session_id),
+        media_type="text/event-stream"
+    )

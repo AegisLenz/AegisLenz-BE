@@ -3,12 +3,12 @@ from odmantic import ObjectId
 from typing import Optional, Union, List
 
 class PromptChatRequestSchema(BaseModel):
-    user_input: str  # 사용자 요청 메시지
+    user_question: str  # 사용자 요청 메시지
 
     class Config:
         json_schema_extra = {
             "example": {
-                "user_input": "사용자 질문 예시",
+                "user_question": "사용자 질문 예시",
             }
         }
 
