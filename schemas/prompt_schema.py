@@ -40,7 +40,7 @@ class GetAllPromptResponseSchema(BaseModel):
     prompt_ids: List[str]
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "prompt_ids": [
                     "507f1f77bcf86cd799439011",
@@ -50,7 +50,7 @@ class GetAllPromptResponseSchema(BaseModel):
             }
         }
 
-class GetPromptContentsSchema():
+class GetPromptContentsSchema(BaseModel):
     role: str  # assistant or user
     content: str
 
@@ -58,7 +58,7 @@ class GetPromptContentsResponseSchema(BaseModel):
     chats: List[GetPromptContentsSchema]
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "chats": [
                     {"role": "user", "content": "자산 보여줘"},
