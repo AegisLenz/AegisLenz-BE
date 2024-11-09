@@ -95,7 +95,7 @@ class PromptService:
     async def _policy_persona(self, query):
         return None
     
-    async def process_prompt(self, user_question, prompt_session_id):
+    async def handle_normal_prompt(self, user_question, prompt_session_id):
         user_content = f"사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
         query = {"role": "user", "content": user_content}
 
@@ -119,9 +119,6 @@ class PromptService:
                                         }, ensure_ascii=False)
             yield self._create_stream_response(type="DBQuery", data=db_query)
             yield self._create_stream_response(type="DBResult", data=db_result)
-        elif persona_type == "Policy":
-            await self._policy_persona(query)
-            persona_response = json.dumps()
         else:
             raise HTTPException(status_code=500, detail="Failed Classify.")
         
@@ -150,14 +147,19 @@ class PromptService:
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
         await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response)
     
-    async def handle_chatgpt_conversation(self, user_question, prompt_session_id):
+    async def handle_chat(self, user_question, prompt_session_id):
         try:
             # PromptSession 아이디 유효성 확인
             await self.prompt_repository.validate_prompt_session(prompt_session_id)
 
             # 프롬프트 처리 및 응답 스트리밍
-            async for chunk in self.process_prompt(user_question, prompt_session_id):
-                yield chunk
+            is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
+            if is_attack_prompt:
+                async for chunk in self.handle_attack_prompt(user_question, prompt_session_id):
+                    yield chunk
+            else:
+                async for chunk in self.handle_normal_prompt(user_question, prompt_session_id):
+                    yield chunk
 
         except HTTPException as e:
             yield json.dumps({"error": e.detail, "status_code": e.status_code})

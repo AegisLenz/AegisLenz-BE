@@ -9,6 +9,9 @@ from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptSession, PromptChat
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
+from core.logging_config import setup_logger
+
+logger = setup_logger()
 
 
 class PromptRepository:
@@ -56,15 +59,31 @@ class PromptRepository:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def validate_prompt_session(self, prompt_session_id: str) -> None:
-        if not ObjectId.is_valid(prompt_session_id):
-            raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
- 
-        prompt_session = await self.mongodb_engine.find_one(
-            PromptSession,
-            PromptSession.id == ObjectId(prompt_session_id)
-        )
-        if prompt_session is None:
-            raise HTTPException(status_code=404, detail="Prompt session not found")
+        try:
+            if not ObjectId.is_valid(prompt_session_id):
+                raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
+    
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            if prompt_session is None:
+                raise HTTPException(status_code=404, detail="Prompt session not found")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def check_attack_detection_id_exist(self, prompt_session_id: str) -> bool:
+        try:
+            result = await self.mongodb_engine.find_one(
+                PromptSession,
+                {
+                    "_id": ObjectId(prompt_session_id),
+                    "attack_detection_id": {"$exists": True, "$ne": None}
+                }
+            )
+            return result is not None
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def find_es_document(self, es_query) -> list:
         try:

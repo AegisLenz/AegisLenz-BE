@@ -32,8 +32,8 @@ async def get_prompt_chats(prompt_session_id: str, prompt_service=Depends(prompt
 
 @router.post("/{prompt_session_id}/chat", response_model=PromptChatStreamResponseSchema)
 async def chat_sse(prompt_session_id: str, request: PromptChatRequestSchema = Body(...), prompt_service=Depends(prompt_service.PromptService)):
-    user_question = request.user_question
+    user_question = request.user_input
     return StreamingResponse(
-        prompt_service.handle_chatgpt_conversation(user_question, prompt_session_id),
+        prompt_service.handle_chat(user_question, prompt_session_id),
         media_type="text/event-stream"
     )
