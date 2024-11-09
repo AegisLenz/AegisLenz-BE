@@ -7,7 +7,7 @@ class PromptSession(Model):
     user_id: Optional[ObjectId] = None
     attack_detection_id: Optional[ObjectId] = None
     chat_summary: Optional[str] = None
-    recommend_history: Optional[Dict] = {}
+    recommend_history: Optional[List[Dict]] = []
 
     created_at: datetime
     updated_at: datetime

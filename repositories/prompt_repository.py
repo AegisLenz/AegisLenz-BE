@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Optional
+from typing import Optional, List, Dict
 from odmantic import ObjectId
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -19,12 +19,14 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self, attack_detection_id: Optional[str] = None) -> str:
+    async def create_prompt(self, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None) -> str:
         try:
             attack_detection_id = ObjectId(attack_detection_id) if attack_detection_id else None
-            
+            recommend_history = recommend_history or []
+
             prompt_session = PromptSession(
                 attack_detection_id=attack_detection_id,
+                recommend_history=recommend_history,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
