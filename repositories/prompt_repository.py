@@ -1,6 +1,5 @@
 import os
 import json
-import datetime
 from odmantic import ObjectId
 from pymongo import ASCENDING
 from dotenv import load_dotenv
@@ -12,6 +11,7 @@ from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
 
 load_dotenv()
+
 
 class PromptRepository:
     def __init__(self):
@@ -56,13 +56,19 @@ class PromptRepository:
         if not ObjectId.is_valid(prompt_session_id):
             raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
  
-        prompt_session = await self.mongodb_engine.find_one(PromptSession, PromptSession.id == ObjectId(prompt_session_id))
+        prompt_session = await self.mongodb_engine.find_one(
+            PromptSession,
+            PromptSession.id == ObjectId(prompt_session_id)
+        )
         if prompt_session is None:
             raise HTTPException(status_code=404, detail="Prompt session not found")
 
     async def find_es_document(self, es_query) -> list:
         try:
-            query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
+            query_result = await self.es_client.search(
+                index=os.getenv("INDEX_NAME"),
+                body=es_query
+            )
             return query_result['hits']['hits']
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
@@ -130,6 +136,34 @@ class PromptRepository:
             prompt_session = await self.mongodb_engine.find_one(PromptSession, PromptSession.id == object_id)
             prompt_session.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             
+            await self.mongodb_engine.save(prompt_session)
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def save_chat(self, prompt_session_id: str, role: str, content: str, recommend_questions: list) -> None:
+        try:
+            prompt_session_id = ObjectId(prompt_session_id)
+            prompt_chat = PromptChat(
+                prompt_session_id=prompt_session_id,
+                role=role,
+                content=content,
+                recommend_questions=recommend_questions,
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
+
+            # redis에 저장
+            await self.redis_client.set_key(prompt_session_id, prompt_chat.json())
+
+            # mongoDB에 저장
+            await self.mongodb_engine.save(prompt_chat)
+
+            # PromptSession 마지막 업데이트 시간 업데이트
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == prompt_session_id
+            )
+            prompt_session.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             await self.mongodb_engine.save(prompt_session)
 
         except Exception as e:

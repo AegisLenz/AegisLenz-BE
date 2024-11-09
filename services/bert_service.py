@@ -26,6 +26,7 @@ class BERTService:
         prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts')
         prompt_files = {
             "Report": "reportPr.txt",
+            "Recommend": "reportPr.txt",
         }
 
         init_prompt = {}
@@ -40,11 +41,6 @@ class BERTService:
                 return file.read()
         except FileNotFoundError:
             raise HTTPException(status_code=500, detail=f"Prompt file not found: {file_path}")
-
-    async def predict_attack(self, log_data: str):
-        preprocessed_logs = await self.predictor.preprocess_logs(log_data)
-        prediction = await self.predictor.predict(preprocessed_logs)
-        return prediction
 
     def _clean_response(self, response):
         choices = getattr(response, "choices", [])
@@ -68,27 +64,28 @@ class BERTService:
         report = await self._receive_gpt_response(report_prompt)
         return report
 
-    async def _create_suggested_questions(self, report):
+    async def _create_recommend_questions(self, report):
         return []
 
     async def _create_least_privilege_policy(self):
         return {}
 
-    async def process_tasks_after_detection(self, user_id: str, attack_info: dict):
+    async def predict_attack(self, log_data: str):
+        preprocessed_logs = await self.predictor.preprocess_logs(log_data)
+        prediction = await self.predictor.predict(preprocessed_logs)
+        return prediction
+
+    async def process_after_detection(self, user_id: str, attack_info: dict):
         # 1. 자산 업데이트
         await self.asset_service.update_asset(user_id)
 
-        # 2. 새 프롬프트 세션 생성
-        prompt_session_id = await self.prompt_repository.create_prompt()
-
-        # 3. 프롬프트 공격 알림 내용 생성
-        attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
-        attack_history = [{"role": "assistant", "content": attack_content, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()}]
-        await self.prompt_repository.save_conversation_history(str(prompt_session_id), attack_history)
-
-        # 4. 보고서 & 최소권한정책 & 추천 질문 생성
+        # 2. 보고서 & 최소권한정책 & 추천 질문 생성
         report = await self._create_report(attack_info)
-        suggested_questions = await self._create_suggested_questions(report)
+        recommend_questions = await self._create_recommend_questions(report)
         least_privilege_policy = await self._create_least_privilege_policy()
 
-        await self.bert_repository.save_attack_detection(report, suggested_questions, least_privilege_policy)
+        # 3. 프롬프트 생성 및 관련 정보 저장
+        prompt_session_id = await self.prompt_repository.create_prompt()
+        attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
+        await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content, recommend_questions)
+        await self.bert_repository.save_attack_detection(report, least_privilege_policy)

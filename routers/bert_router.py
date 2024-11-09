@@ -95,5 +95,5 @@ async def test(bert_service: BERTService = Depends(BERTService)):
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
     
-    await bert_service.process_tasks_after_detection("1", attack_info)
+    await bert_service.process_after_detection("1", attack_info)
     return "success"

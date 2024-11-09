@@ -11,8 +11,7 @@ class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends()):
         self.prompt_repository = prompt_repository
         load_dotenv()
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.gpt_client = openai.OpenAI(api_key=self.api_key)
+        self.gpt_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.init_prompt = self._load_all_prompts()
 
     def _load_all_prompts(self):
@@ -96,7 +95,7 @@ class PromptService:
     async def _policy_persona(self, query):
         return None
     
-    async def process_prompt(self, user_input, prompt_session_id):
+    async def process_prompt_old(self, user_input, prompt_session_id):
         user_input_content = f"사용자의 자연어 질문: {user_input} 답변은 반드시 json 형식으로 나옵니다."
         query = {"role": "user", "content": user_input_content}
 
@@ -157,6 +156,9 @@ class PromptService:
         # 스트리밍 완료 메시지 전송
         yield self._create_stream_response(status="complete")
 
+    async def process_prompt(self, user_input, prompt_session_id):
+        
+    
     async def handle_chatgpt_conversation(self, user_input, prompt_session_id):
         try:
             # PromptSession 아이디 유효성 확인
