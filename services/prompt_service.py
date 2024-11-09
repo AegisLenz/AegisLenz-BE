@@ -131,9 +131,12 @@ class PromptService:
             raise HTTPException(status_code=500, detail="Failed Classify.")
         
         # 요약 데이터
+        summary_conversation = self.init_prompt["Summary"]
+        summary_conversation.append(query)
+        summary_conversation.append({"role": "assistant", "content": persona_response})
         stream = self.gpt_client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[query, {"role": "assistant", "content": persona_response}],
+            messages=summary_conversation,
             stream=True,
         )
 

@@ -13,6 +13,8 @@ jobs:
       # GitHub 저장소에서 코드를 체크아웃
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       # 서버에 SSH로 접속하여 환경설정 및 배포
       - name: SSH into Server and Deploy
@@ -26,5 +28,6 @@ jobs:
           script: |
             cd AegisLenz/AegisLenz-BE
             git pull origin dev
+            git submodule update --init --recursive
             docker-compose -p aegislenz down
             docker-compose -p aegislenz up --build -d
