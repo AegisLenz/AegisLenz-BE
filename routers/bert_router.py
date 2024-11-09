@@ -1,3 +1,5 @@
+# BERT 모델을 이용해 로그 데이터를 예측하는 API 엔드포인트를 제공하는 파일
+
 import os
 import json
 import asyncio

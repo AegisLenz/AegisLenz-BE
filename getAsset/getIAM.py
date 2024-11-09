@@ -1,3 +1,4 @@
+# AWS IAM 사용자 정보를 가져오는 코드
 from datetime import datetime, timedelta, timezone
 import boto3
 from dotenv import load_dotenv

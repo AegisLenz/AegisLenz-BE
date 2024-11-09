@@ -1,3 +1,4 @@
+# BERT 예측 결과를 위한 데이터 구조를 정의하는 파일
 from pydantic import BaseModel
 
 class PredictionSchema(BaseModel):

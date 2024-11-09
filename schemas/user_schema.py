@@ -1,3 +1,4 @@
+# 사용자 정보의 형식을 정의함
 from pydantic import BaseModel
 
 class UserSchema(BaseModel):

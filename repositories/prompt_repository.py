@@ -1,3 +1,4 @@
+# 사용자와의 프롬프트 세션 관리와 대화 내용을 저장, 조회하는 역할을 함
 import os
 import json
 import datetime
@@ -19,6 +20,7 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
+    # 새로운 프롬프트 세션을 생성하고 MongoDB에 저장함
     async def create_prompt(self) -> str:
         try:
             prompt_session = PromptSession(
@@ -30,6 +32,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+    # MongoDB에서 모든 프롬프트 세션 ID를 가져와 리스트로 반환함
     async def get_all_prompt(self) -> list:
         try:
             prompts = await self.mongodb_engine.find(PromptSession)
@@ -38,6 +41,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
+    # 특정 프롬프트 세션의 대화 내용을 조회함
     async def get_prompt_contents(self, prompt_session_id: str) -> list:
         try:
             prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
@@ -47,6 +51,8 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
+
+    # 세션 ID가 올바른지 확인하고, 존재하지 않으면 오류를 반환함
     async def validate_prompt_session(self, prompt_session_id: str) -> None:
         if not ObjectId.is_valid(prompt_session_id):
             raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
@@ -55,6 +61,8 @@ class PromptRepository:
         if prompt_session is None:
             raise HTTPException(status_code=404, detail="Prompt session not found")
 
+
+    #  Elasticsearch를 이용해 쿼리를 실행하고 결과를 반환함
     async def find_es_document(self, es_query) -> list:
         try:
             query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
@@ -62,6 +70,8 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+
+    # MongoDB에서 특정 쿼리 조건에 맞는 데이터를 조회함
     async def find_db_document(self, db_query) -> list:
         try:
             db_query = json.loads(db_query)
@@ -78,6 +88,8 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+
+    # Redis 또는 MongoDB에서 대화기록을 불러와, Redis에서 데이터를 찾지 못할 경우 MongoDB에서 가져옴
     async def load_conversation_history(self, prompt_session_id: str) -> list:
         try:
             # Redis에서 conversation history 조회

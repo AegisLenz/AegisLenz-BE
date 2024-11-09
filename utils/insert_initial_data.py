@@ -1,3 +1,5 @@
+# MongoDB의 Policy 컬렉션에 초기 정책 데이터를 삽입하는 스크립트.
+# 정책 데이터가 없다면, ./iam-policy/AWSDatabase 디렉터리에서 최소권한 정책 파일을 읽어와 MongoDB에 저장한다.
 import os
 import json
 from core.mongodb_driver import mongodb

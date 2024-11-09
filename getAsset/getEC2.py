@@ -1,3 +1,4 @@
+#AWS EC2 인스턴스 정보를 가져오는 코드
 import boto3
 from dotenv import load_dotenv
 import os
