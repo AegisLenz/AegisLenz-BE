@@ -3,9 +3,9 @@ import json
 import openai
 from dotenv import load_dotenv
 from fastapi import HTTPException, Depends
-from datetime import datetime, timedelta, timezone
 from repositories.prompt_repository import PromptRepository
-from schemas.prompt_schema import PromptChatStreamResponseSchema, CreatePromptResponseSchema
+from schemas.prompt_schema import PromptChatStreamResponseSchema
+
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends()):
@@ -95,13 +95,9 @@ class PromptService:
     async def _policy_persona(self, query):
         return None
     
-    async def process_prompt_old(self, user_input, prompt_session_id):
-        user_input_content = f"사용자의 자연어 질문: {user_input} 답변은 반드시 json 형식으로 나옵니다."
-        query = {"role": "user", "content": user_input_content}
-
-        # DB에서 대화 히스토리 가져오기
-        conversation_history = await self.prompt_repository.load_conversation_history(prompt_session_id)
-        conversation_history.append({"role": "user", "content": user_input, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
+    async def process_prompt(self, user_question, prompt_session_id):
+        user_content = f"사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
+        query = {"role": "user", "content": user_content}
 
         # 분류기 데이터
         persona_type = await self._classify_persona(query)
@@ -146,26 +142,21 @@ class PromptService:
             if clean_answer:
                 assistant_response += clean_answer
                 yield self._create_stream_response(type="Summary", data=clean_answer)
-
-        # 스트리밍이 끝나면 전체 응답을 하나의 문자열로 합쳐 히스토리에 저장
-        conversation_history.append({"role": "assistant", "content": assistant_response, "timestamp": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()})
-    
-        # DB에 대화 히스토리 저장
-        await self.prompt_repository.save_conversation_history(prompt_session_id, conversation_history)
- 
+         
         # 스트리밍 완료 메시지 전송
         yield self._create_stream_response(status="complete")
 
-    async def process_prompt(self, user_input, prompt_session_id):
-        
+        # DB에 채팅 내역 저장
+        await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
+        await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response)
     
-    async def handle_chatgpt_conversation(self, user_input, prompt_session_id):
+    async def handle_chatgpt_conversation(self, user_question, prompt_session_id):
         try:
             # PromptSession 아이디 유효성 확인
             await self.prompt_repository.validate_prompt_session(prompt_session_id)
 
             # 프롬프트 처리 및 응답 스트리밍
-            async for chunk in self.process_prompt(user_input, prompt_session_id):
+            async for chunk in self.process_prompt(user_question, prompt_session_id):
                 yield chunk
 
         except HTTPException as e:
