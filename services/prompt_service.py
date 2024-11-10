@@ -11,7 +11,8 @@ logger = setup_logger()
 
 
 class PromptService:
-    def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(), asset_repository: AssetRepository = Depends(), gpt_service: GPTService = Depends()):
+    def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
+                 asset_repository: AssetRepository = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
