@@ -11,8 +11,8 @@ class IAMUser(EmbeddedModel):
     UserName: str
     UserId: str
     CreateDate: datetime
-    UserPolicies: List[str]
-    AttachedPolicies: List[str]
+    UserPolicies: List[dict]
+    AttachedPolicies: List[dict]
     Groups: List[str]
     PasswordLastUsed: Optional[datetime]
     AccessKeysLastUsed: List[AccessKey]

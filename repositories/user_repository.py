@@ -13,7 +13,7 @@ class UserRepository:
         new_user = await engine.save(self.user)
         return new_user
     
-    async def get_user_asset(self, user_id: str, Assettype: str,engine):
+    async def get_user_asset(self, user_id: str, Assettype: str, engine):
         user_asset = await engine.find_one(UserAsset, {"user_id": user_id})
         if not user_asset:
             return {"error": "User asset not found"}
