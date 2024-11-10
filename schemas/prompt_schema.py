@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from odmantic import ObjectId
 from typing import Optional, Union, List
 
+
 class PromptChatRequestSchema(BaseModel):
     user_input: str  # 사용자 요청 메시지
 
@@ -11,6 +12,7 @@ class PromptChatRequestSchema(BaseModel):
                 "user_input": "사용자 질문 예시",
             }
         }
+
 
 class PromptChatStreamResponseSchema(BaseModel):
     status: str  # "processing" 또는 "complete" 상태를 나타냄
@@ -26,6 +28,7 @@ class PromptChatStreamResponseSchema(BaseModel):
             }
         }
 
+
 class CreatePromptResponseSchema(BaseModel):
     prompt_session_id: ObjectId
 
@@ -35,6 +38,7 @@ class CreatePromptResponseSchema(BaseModel):
                 "prompt_session_id": "1",
             }
         }
+
 
 class GetAllPromptResponseSchema(BaseModel):
     prompt_ids: List[str]
@@ -50,9 +54,11 @@ class GetAllPromptResponseSchema(BaseModel):
             }
         }
 
+
 class GetPromptContentsSchema(BaseModel):
     role: str  # assistant or user
     content: str
+
 
 class GetPromptContentsResponseSchema(BaseModel):
     chats: List[GetPromptContentsSchema]

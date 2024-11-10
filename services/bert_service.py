@@ -1,69 +1,33 @@
-import os
-import openai
-from fastapi import HTTPException, Depends
-from dotenv import load_dotenv
+from fastapi import Depends
+from services.gpt_service import GPTService
 from ai.predict import BERTPredictor
 from services.asset_service import AssetService
-from services.prompt_service import PromptService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 
 
 class BERTService:
-    def __init__(self, bert_repository: BertRepository = Depends(), prompt_repository: PromptRepository = Depends(), asset_service: AssetService = Depends(), prompt_service: PromptService = Depends()):
+    def __init__(self, bert_repository: BertRepository = Depends(), prompt_repository: PromptRepository = Depends(),
+                 asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
         self.predictor = BERTPredictor()
         self.asset_service = asset_service
-        self.prompt_service = prompt_service
+        self.gpt_service = gpt_service
         self.bert_repository = bert_repository
         self.prompt_repository = prompt_repository
-        
-        load_dotenv()
-        self.gpt_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.init_prompt = self._load_all_prompts()
-
-    def _load_all_prompts(self):
-        prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts')
-        prompt_files = {
-            "Report": "reportPr.txt",
-            "Recommend": "recomm.txt",
-        }
-
-        init_prompt = {}
-        for name, file_name in prompt_files.items():
-            path = os.path.join(prompt_dir, file_name)
-            init_prompt[name] = [{"role": "system", "content": self._read_prompt(path)}]
-        return init_prompt
-    
-    def _read_prompt(self, file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                return file.read()
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=f"Prompt file not found: {file_path}")
-
-    def _clean_response(self, response):
-        choices = getattr(response, "choices", [])
-        return choices[0].message.content if choices and hasattr(choices[0].message, 'content') else None
-
-    async def _receive_gpt_response(self, init_prompt):
-        response = self.gpt_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=init_prompt
-        )
-        return self._clean_response(response)
+        self.init_prompts = self.gpt_service._load_prompts()
 
     async def _create_report(self, attack_info):
-        report_content = self.init_prompt["Report"][0]["content"].format(
+        report_content = self.init_prompts["Report"][0]["content"].format(
             attack_time=attack_info["attack_time"],
             attack_type=attack_info["attack_type"],
             logs=attack_info["logs"]
         )
         report_prompt = [{"role": "system", "content": report_content}]
-        report = await self._receive_gpt_response(report_prompt)
+        report = await self.gpt_service.get_response(report_prompt, json_format=False)
         return report
 
-    async def _create_recommend_questions(self, attack_info, report):
-        recommend_content = self.init_prompt["Recommend"][0]["content"].format(
+    async def _create_recommend_questions(self, attack_info: dict, report: str):
+        recommend_content = self.init_prompts["Recommend"][0]["content"].format(
             Tatic=attack_info["attack_type"][0],
             report=report,
             logs=attack_info["logs"]
@@ -74,7 +38,7 @@ class BERTService:
         prompt_text = f"{base_query}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
         recommend_prompt.append({"role": "user", "content": prompt_text})
 
-        response = await self._receive_gpt_response(recommend_prompt)
+        response = await self.gpt_service.get_response(recommend_prompt, json_format=False)
         recommend_questions = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
         recommend_prompt.append({"role": "assistant", "content": recommend_questions})
         

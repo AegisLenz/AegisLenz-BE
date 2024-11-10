@@ -1,8 +1,6 @@
-import os
 import json
-import openai
-from dotenv import load_dotenv
 from fastapi import HTTPException, Depends
+from services.gpt_service import GPTService
 from repositories.prompt_repository import PromptRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema
 from core.logging_config import setup_logger
@@ -11,34 +9,10 @@ logger = setup_logger()
 
 
 class PromptService:
-    def __init__(self, prompt_repository: PromptRepository = Depends()):
+    def __init__(self, prompt_repository: PromptRepository = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
-        load_dotenv()
-        self.gpt_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.init_prompt = self._load_all_prompts()
-
-    def _load_all_prompts(self):
-        prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts')
-        prompt_files = {
-            "Classify": "ClassifyPr.txt",
-            "ES": "onlyES.txt",
-            "DB": "onlyMDB.txt",
-            "Policy": "policy.txt",
-            "Summary": "DetailPr.txt"
-        }
-
-        init_prompt = {}
-        for name, file_name in prompt_files.items():
-            path = os.path.join(prompt_dir, file_name)
-            init_prompt[name] = [{"role": "system", "content": self._read_prompt(path)}]
-        return init_prompt
-    
-    def _read_prompt(self, file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                return file.read()
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=f"Prompt file not found: {file_path}")
+        self.gpt_service = gpt_service
+        self.init_prompts = self.gpt_service._load_prompts()
     
     async def create_prompt(self):
         return await self.prompt_repository.create_prompt()
@@ -50,39 +24,18 @@ class PromptService:
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
         return await self.prompt_repository.get_prompt_chats(prompt_session_id)
 
-    def _clean_streaming_chunk(self, chunk):
-        choices = getattr(chunk, "choices", None)
-        return choices[0].delta.content if choices and choices[0].delta.content else None
-
-    def _clean_response(self, response):
-        choices = getattr(response, "choices", [])
-        return choices[0].message.content if choices and hasattr(choices[0].message, 'content') else None
-
-    async def _receive_gpt_response(self, messages, json_format=True):
-        try:
-            response_format = {"type": "json_object"} if json_format else None
-            response = self.gpt_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                response_format=response_format
-            )
-            return self._clean_response(response)
-        except Exception as e:
-            logger.error(f"Error fetching GPT response: {e}")
-            raise HTTPException(status_code=500, detail="GPT API error")
-
     async def _classify_persona(self, query):
-        messages = self.init_prompt["Classify"]
-        messages.append(query)
-        response = await self._receive_gpt_response(messages)
+        classify_prompt = self.init_prompts["Classify"]
+        classify_prompt.append(query)
+        response = await self.gpt_service.get_response(classify_prompt)
         responss_data = json.loads(response)
         persona_type = responss_data.get("topics")
         return persona_type
 
     async def _es_persona(self, query):
-        messages = self.init_prompt["ES"]
-        messages.append(query)
-        es_query = await self._receive_gpt_response(messages)
+        es_prompt = self.init_prompts["ES"]
+        es_prompt.append(query)
+        es_query = await self.gpt_service.get_response(es_prompt)
         if es_query:
             es_result = await self.prompt_repository.find_es_document(es_query)
             return es_query, es_result
@@ -90,9 +43,9 @@ class PromptService:
             raise HTTPException(status_code=400, detail="Failed ElasticSearch query parsing.")
 
     async def _db_persona(self, query):
-        messages = self.init_prompt["DB"]
-        messages.append(query)
-        db_query = await self._receive_gpt_response(messages)
+        db_prompt = self.init_prompts["DB"]
+        db_prompt.append(query)
+        db_query = await self.gpt_service.get_response(db_prompt)
         if db_query:
             db_result = await self.prompt_repository.find_db_document(db_query)
             return db_query, db_result
@@ -105,26 +58,15 @@ class PromptService:
     def _create_stream_response(self, status="processing", type=None, data=None):
         response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
         return json.dumps(response.dict(), ensure_ascii=False) + "\n"
-
-    async def _stream_gpt_summary(self, messages):
-        stream = self.gpt_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            stream=True,
-        )
-        for chunk in stream:
-            clean_answer = self._clean_streaming_chunk(chunk)
-            if clean_answer:
-                yield self._create_stream_response(type="Summary", data=clean_answer), clean_answer
-    
+ 
     async def handle_normal_prompt(self, user_question, prompt_session_id):
         user_content = f"사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
         query = {"role": "user", "content": user_content}
 
-        # 분류기 결과
+        # 분류기 페르소나 결과
         persona_type = await self._classify_persona(query)
         
-        # 분류기 결과에 따른 페르소나 처리
+        # 분류기 결과에 따른 페르소나 로직 수행
         if persona_type in ["ES", "DB"]:
             if persona_type == "ES":
                 es_query, es_result = await self._es_persona(query)
@@ -143,23 +85,23 @@ class PromptService:
                 yield self._create_stream_response(type="DBQuery", data=db_query)
                 yield self._create_stream_response(type="DBResult", data=db_result)
 
-            # 요약 데이터
-            summary_conversation = self.init_prompt["Summary"]
-            summary_conversation.append({
+            # 요약 페르소나
+            summary_prompt = self.init_prompts["Summary"]
+            summary_prompt.append({
                 "role": "user",
                 "content": f"{user_content}\n{persona_type} 응답: {persona_response}"
             })
             
             assistant_response = ""
-            async for chunk, assistant_text in self._stream_gpt_summary(summary_conversation):
-                assistant_response += assistant_text  # assistant_response에 응답을 누적 저장
-                yield chunk
+            async for chunk in self.gpt_service.stream_response(summary_prompt):
+                assistant_response += chunk  # assistant_response에 응답을 누적 저장
+                yield self._create_stream_response(type="Summary", data=chunk)
         
         elif persona_type == "Normal":
             assistant_response = ""
-            async for chunk, assistant_text in self._stream_gpt_summary([{"role": "user", "content": user_question}]):
-                assistant_response += assistant_text  # assistant_response에 응답을 누적 저장
-                yield chunk
+            async for chunk in self.gpt_service.stream_response([{"role": "user", "content": user_question}]):
+                assistant_response += chunk  # assistant_response에 응답을 누적 저장
+                yield self._create_stream_response(type="Summary", data=chunk)
         else:
             raise HTTPException(status_code=500, detail="Failed Classify.")
          
@@ -179,7 +121,7 @@ class PromptService:
             is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
             if is_attack_prompt:
                 async for chunk in self.handle_attack_prompt(user_question, prompt_session_id):
-                    yield chunk
+                    yield chunk 
             else:
                 async for chunk in self.handle_normal_prompt(user_question, prompt_session_id):
                     yield chunk
