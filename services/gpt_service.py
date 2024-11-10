@@ -50,13 +50,16 @@ class GPTService:
         choices = getattr(chunk, "choices", None)
         return choices[0].delta.content if choices and choices[0].delta.content else None
 
-    async def get_response(self, messages, json_format=True):
+    async def get_response(self, messages, json_format=True, recomm=False):
         try:
             response_format = {"type": "json_object"} if json_format else None
+            presence_penalty = 1.5 if recomm else 0
+            
             response = self.gpt_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
-                response_format=response_format
+                response_format=response_format,
+                presence_penalty=presence_penalty
             )
             return self._clean_response(response)
         except Exception as e:

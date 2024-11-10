@@ -35,13 +35,11 @@ class BERTService:
         recommend_prompt = [{"role": "system", "content": recommend_content}]
 
         base_query = f"AI 질의 : AWS 환경에서 발생한 공격이 MITRE ATTACK Tatic 중 {attack_info["attack_type"][0]}일 때, 보안 관리자가 어떤 질문을 해야 하는지 추천 질문 만들어줘 "
-        prompt_text = f"{base_query}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
-        recommend_prompt.append({"role": "user", "content": prompt_text})
+        recommend_prompt.append({"role": "user", "content": base_query})
 
-        response = await self.gpt_service.get_response(recommend_prompt, json_format=False)
+        response = await self.gpt_service.get_response(recommend_prompt, json_format=False, recomm=True)
         recommend_questions = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
-        recommend_prompt.append({"role": "assistant", "content": recommend_questions})
-        
+        recommend_prompt.append({"role": "assistant", "content": "\n".join(recommend_questions)})
         return recommend_prompt, recommend_questions
 
     async def _create_least_privilege_policy(self):
@@ -64,6 +62,6 @@ class BERTService:
         # 3. 프롬프트 생성 및 관련 정보 저장
         attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy)
 
-        prompt_session_id = await self.prompt_repository.create_prompt(attack_detection_id, recommend_prompt)
+        prompt_session_id = await self.prompt_repository.create_prompt(attack_detection_id, recommend_prompt, recommend_questions)
         attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
-        await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content, recommend_questions)
+        await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content)

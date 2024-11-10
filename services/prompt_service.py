@@ -2,6 +2,8 @@ import json
 from fastapi import HTTPException, Depends
 from services.gpt_service import GPTService
 from repositories.prompt_repository import PromptRepository
+from repositories.bert_repository import BertRepository
+from repositories.asset_repository import AssetRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema
 from core.logging_config import setup_logger
 
@@ -9,8 +11,10 @@ logger = setup_logger()
 
 
 class PromptService:
-    def __init__(self, prompt_repository: PromptRepository = Depends(), gpt_service: GPTService = Depends()):
+    def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(), asset_repository: AssetRepository = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
+        self.bert_repository = bert_repository
+        self.asset_repository = asset_repository
         self.gpt_service = gpt_service
         self.init_prompts = self.gpt_service._load_prompts()
     
@@ -52,20 +56,26 @@ class PromptService:
         else:
             raise HTTPException(status_code=400, detail="Failed MongoDB query parsing.")
 
-    async def _policy_persona(self, query):
-        return None
+    async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions):
+        response = await self.gpt_service.get_response(recomm_history, json_format=False, recomm=True)
+        new_questions = response.splitlines()
+        unique_questions = [
+            question.strip().replace('\"', '') for question in new_questions
+            if question.strip() and question.strip().replace('\"', '') not in pre_recomm_questions
+        ]
+        return unique_questions[:3]
 
     def _create_stream_response(self, status="processing", type=None, data=None):
         response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
         return json.dumps(response.dict(), ensure_ascii=False) + "\n"
- 
-    async def handle_normal_prompt(self, user_question, prompt_session_id):
+
+    async def process_prompt(self, user_question: str, prompt_session_id: str, is_attack=False):
         user_content = f"사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
         query = {"role": "user", "content": user_content}
 
         # 분류기 페르소나 결과
         persona_type = await self._classify_persona(query)
-        
+
         # 분류기 결과에 따른 페르소나 로직 수행
         if persona_type in ["ES", "DB"]:
             if persona_type == "ES":
@@ -84,7 +94,7 @@ class PromptService:
                                             }, ensure_ascii=False)
                 yield self._create_stream_response(type="DBQuery", data=db_query)
                 yield self._create_stream_response(type="DBResult", data=db_result)
-
+            
             # 요약 페르소나
             summary_prompt = self.init_prompts["Summary"]
             summary_prompt.append({
@@ -94,24 +104,54 @@ class PromptService:
             
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk  # assistant_response에 응답을 누적 저장
+                assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
-        
+        elif persona_type == "Policy":
+            pass
+            # original_policy = self.asset_repository.find_policy()  # 구현필요
+            # least_privilege_policy = self.bert_repository.find_lpp()  # 구현필요
+
+            # policy_content = self.init_prompts["Policy"][0]["content"].format(
+            #     original_policy=original_policy,
+            #     least_privilege_policy=least_privilege_policy
+            # )
+            # policy_prompt = [{"role": "system", "content": policy_content}]
+            # policy_prompt.append(query)
+
+            # assistant_response = ""
+            # async for chunk in self.gpt_service.stream_response(policy_prompt):
+            #     assistant_response += chunk
+            #     yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Normal":
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response([{"role": "user", "content": user_question}]):
-                assistant_response += chunk  # assistant_response에 응답을 누적 저장
+                assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         else:
             raise HTTPException(status_code=500, detail="Failed Classify.")
-         
+
+        # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성 로직 수행
+        if is_attack:
+            recomm_history, pre_recomm_questions = await self.prompt_repository.find_recommend_data(prompt_session_id)
+            prompt_text = f"{user_question}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
+            recomm_history.append({"role": "user", "content": prompt_text})
+            recomm_history.append({"role": "assistant", "content": assistant_response})
+
+            recomm_questions = await self._recommend_questions_persona(recomm_history, pre_recomm_questions)
+            if recomm_questions:
+                yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
+                recomm_history.append({"role": "assistant", "content": "\n".join(recomm_questions)})
+                pre_recomm_questions.extend(recomm_questions)
+
+            await self.prompt_repository.update_recommend_data(prompt_session_id, recomm_history, pre_recomm_questions)
+
         # 스트리밍 완료 메시지 전송
         yield self._create_stream_response(status="complete")
 
         # DB에 채팅 내역 저장
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
         await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response)
-    
+
     async def handle_chat(self, user_question: str, prompt_session_id: str):
         try:
             # PromptSession 아이디 유효성 확인
@@ -120,10 +160,10 @@ class PromptService:
             # 프롬프트 처리 및 응답 스트리밍
             is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
             if is_attack_prompt:
-                async for chunk in self.handle_attack_prompt(user_question, prompt_session_id):
-                    yield chunk 
+                async for chunk in self.process_prompt(user_question, prompt_session_id, is_attack=True):
+                    yield chunk
             else:
-                async for chunk in self.handle_normal_prompt(user_question, prompt_session_id):
+                async for chunk in self.process_prompt(user_question, prompt_session_id, is_attack=False):
                     yield chunk
 
         except HTTPException as e:

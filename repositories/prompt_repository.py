@@ -22,14 +22,16 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None) -> str:
+    async def create_prompt(self, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None, recommend_questions: Optional[List[str]] = None) -> str:
         try:
             attack_detection_id = ObjectId(attack_detection_id) if attack_detection_id else None
             recommend_history = recommend_history or []
+            recommend_questions = recommend_questions or []
 
             prompt_session = PromptSession(
                 attack_detection_id=attack_detection_id,
                 recommend_history=recommend_history,
+                recommend_questions=recommend_questions,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
@@ -111,14 +113,13 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def save_chat(self, prompt_session_id: str, role: str, content: str, recommend_questions: Optional[list] = None) -> None:
+    async def save_chat(self, prompt_session_id: str, role: str, content: str) -> None:
         try:
             prompt_session_id = ObjectId(prompt_session_id)
             prompt_chat = PromptChat(
                 prompt_session_id=prompt_session_id,
                 role=role,
                 content=content,
-                recommend_questions=recommend_questions or [],
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
 
@@ -135,6 +136,30 @@ class PromptRepository:
             )
             prompt_session.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             await self.mongodb_engine.save(prompt_session)
-
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_recommend_data(self, prompt_session_id: str):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            if prompt_session:
+                return prompt_session.recommend_history, prompt_session.recommend_questions
+            else:
+                return [], []
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def update_recommend_data(self, prompt_session_id: str, recomm_history: list, recomm_questions: list):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            prompt_session.recommend_history = recomm_history
+            prompt_session.recommend_questions = recomm_questions
+            await self.mongodb_engine.save(prompt_session)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while updating recommend data: {str(e)}")
