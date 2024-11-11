@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta, timezone
 import boto3
 from dotenv import load_dotenv
 import os
@@ -37,11 +36,37 @@ def get_iam_users():
 
         # 사용자 정책 가져오기
         user_policies = iam_client.list_user_policies(UserName=user_name).get("PolicyNames", [])
-        user_info["UserPolicies"] = user_policies
+        for policy_name in user_policies:
+            
+            # 정책의 내용 가져오기
+            policy_details = iam_client.get_user_policy(UserName=user_name, PolicyName=policy_name)
+            policy_document = policy_details["PolicyDocument"]
+            
+            user_info["UserPolicies"].append({
+                "PolicyName": policy_name,
+                "PolicyDocument": policy_document
+            })
 
         # 사용자에 연결된 관리형 정책 가져오기
         attached_policies = iam_client.list_attached_user_policies(UserName=user_name).get("AttachedPolicies", [])
-        user_info["AttachedPolicies"] = [policy["PolicyName"] for policy in attached_policies]
+        for policy in attached_policies:
+            policy_arn = policy["PolicyArn"]
+
+            # 1. 최신 버전 ID를 가져오기 위해 get_policy 호출
+            policy_details = iam_client.get_policy(PolicyArn=policy_arn)
+            default_version_id = policy_details["Policy"]["DefaultVersionId"]
+
+            # 2. 정책의 최신 버전 내용 가져오기
+            policy_version = iam_client.get_policy_version(
+                PolicyArn=policy_arn,
+                VersionId=default_version_id
+            )
+
+            policy_document = policy_version["PolicyVersion"]["Document"]
+            user_info["AttachedPolicies"].append({
+                "PolicyName": policy["PolicyName"],
+                "PolicyDocument": policy_document
+            })
 
         # 사용자 그룹 가져오기
         groups = iam_client.list_groups_for_user(UserName=user_name).get("Groups", [])
