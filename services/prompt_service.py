@@ -1,13 +1,12 @@
 import json
+from bson import json_util
 from fastapi import HTTPException, Depends
+from datetime import datetime
 from services.gpt_service import GPTService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema
-from core.logging_config import setup_logger
-
-logger = setup_logger()
 
 
 class PromptService:
@@ -67,11 +66,13 @@ class PromptService:
         return unique_questions[:3]
 
     def _create_stream_response(self, status="processing", type=None, data=None):
+        if data is not None:
+            data = json.dumps(data, ensure_ascii=False).replace('\"', '') if isinstance(data, dict) else data.replace('\"', '')
         response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
         return json.dumps(response.dict(), ensure_ascii=False) + "\n"
 
     async def process_prompt(self, user_question: str, prompt_session_id: str, is_attack=False):
-        user_content = f"사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
+        user_content = f"현재 날짜와 시간은 {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}입니다. 이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
         query = {"role": "user", "content": user_content}
 
         # 분류기 페르소나 결과
@@ -92,9 +93,9 @@ class PromptService:
                 persona_response = json.dumps({
                                                 "db_query": db_query,
                                                 "db_result": db_result
-                                            }, ensure_ascii=False)
+                                            }, default=json_util.default, ensure_ascii=False)
                 yield self._create_stream_response(type="DBQuery", data=db_query)
-                yield self._create_stream_response(type="DBResult", data=db_result)
+                yield self._create_stream_response(type="DBResult", data=json.dumps(db_result, default=json_util.default, ensure_ascii=False))
             
             # 요약 페르소나
             summary_prompt = self.init_prompts["Summary"]

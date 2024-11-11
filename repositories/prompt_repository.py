@@ -9,9 +9,7 @@ from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptSession, PromptChat
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
-from core.logging_config import setup_logger
-
-logger = setup_logger()
+from utils.prompt.convert_dates_in_query import convert_dates_in_query
 
 
 class PromptRepository:
@@ -100,19 +98,12 @@ class PromptRepository:
     async def find_db_document(self, db_query) -> list:
         try:
             db_query = json.loads(db_query)
-            
-            # 컬렉션 이름과 find 조건 추출
-            collection_name = db_query.get("collection")
-            find_filter = db_query.get("find", {})
-
-            # MongoDB 컬렉션 접근 및 조회
-            collection = self.mongodb_client[collection_name]
-            cursor = collection.find(find_filter)
-            result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
-            return result
+            db_query = convert_dates_in_query(db_query)
+            results = await self.mongodb_client.user_assets.find(db_query).to_list(length=100)  # 최대 100개 문서 가져오기
+            return results
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
-
+    
     async def save_chat(self, prompt_session_id: str, role: str, content: str) -> None:
         try:
             prompt_session_id = ObjectId(prompt_session_id)
