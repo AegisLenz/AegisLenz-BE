@@ -16,7 +16,6 @@ class UserRepository:
         new_user = await engine.save(self.user) #db에 사용자 저장이 완료될 때까지 기다림
         return new_user
     
-    #비동기함수. user_id에 해당하는 사용자의 자산 정보를 조회하여 반환하는 역할
     async def get_user_asset(self, user_id: str, Assettype: str, engine):
         user_asset = await engine.find_one(UserAsset, {"user_id": user_id})
         if not user_asset:
