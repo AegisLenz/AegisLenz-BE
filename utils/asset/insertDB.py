@@ -19,10 +19,7 @@ async def insert_data(user_id):
         user_id=user_id,
         asset=asset  # 중첩된 Asset 객체를 포함하여 저장
     )
-<<<<<<< HEAD:utils/asset/insertDB.py
-=======
     
->>>>>>> b0d67aa (Feat: 자산조회 API 완성 (#43)):getAsset/insertDB.py
     print(user_assets)
     engine = mongodb.get_engine()
     await engine.save(user_assets)  # UserAsset 저장 시 Asset 필드도 중첩 저장
