@@ -1,9 +1,9 @@
 import asyncio
 from core.mongodb_driver import mongodb
 from models.asset_model import UserAsset, Asset, IAMUser, EC2, S3_Bucket
-from getAsset.getIAM import get_iam_users
-from getAsset.getS3 import get_s3_buckets
-from getAsset.getEC2 import get_ec2_instances
+from utils.asset.get_iam import get_iam_users
+from utils.asset.get_s3 import get_s3_buckets
+from utils.asset.get_ec2 import get_ec2_instances
 
 async def insert_data(user_id):
     # IAM, EC2, S3 데이터 수집

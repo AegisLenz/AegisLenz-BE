@@ -1,9 +1,10 @@
 from fastapi import Depends
-from getAsset.getIAM import get_iam_users
-from getAsset.getS3 import get_s3_buckets
-from getAsset.getEC2 import get_ec2_instances
+from utils.asset.get_iam import get_iam_users
+from utils.asset.get_s3 import get_s3_buckets
+from utils.asset.get_ec2 import get_ec2_instances
 from models.asset_model import UserAsset, Asset, IAMUser, EC2, S3_Bucket
 from repositories.asset_repository import AssetRepository
+
 
 class AssetService:
     def __init__(self, asset_repository: AssetRepository = Depends()):
@@ -19,10 +20,10 @@ class AssetService:
         asset = Asset(IAM=iam_users, EC2=ec2_instances, S3=s3_buckets)
         
         # UserAsset 객체 생성 및 저장
-        user_asset = UserAsset(
+        user_assets = UserAsset(
             user_id=user_id,
             asset=asset  # 중첩된 Asset 객체를 포함하여 저장
         )
 
         # UserAsset 저장 시 Asset 필드도 중첩 저장
-        await self.asset_repository.save_asset(user_asset)
+        await self.asset_repository.save_asset(user_assets)
