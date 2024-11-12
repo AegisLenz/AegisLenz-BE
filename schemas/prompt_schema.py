@@ -62,6 +62,8 @@ class GetPromptContentsSchema(BaseModel):
 
 class GetPromptContentsResponseSchema(BaseModel):
     chats: List[GetPromptContentsSchema]
+    report: Optional[str]
+    init_recommend_questions: Optional[List[str]]
 
     class Config:
         json_schema_extra = {

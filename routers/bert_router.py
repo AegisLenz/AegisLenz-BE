@@ -88,7 +88,7 @@ async def test(bert_service: BERTService = Depends(BERTService)):
     attack_info['attack_time'] = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
     attack_info['attack_type'] = ["T1087 - Account Discovery", "TA0007 - Discovery"]
 
-    file_path = "./logs.txt"
+    file_path = "./temp_files/logs.txt"
     try:
         with open(file_path, "r", encoding="utf-8") as file:
             attack_info['logs'] = file.read()

@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone
 from core.mongodb_driver import mongodb
 from models.attack_detection_model import AttackDetection
@@ -21,5 +22,15 @@ class BertRepository:
             # MongoDB에 저장
             await self.mongodb_engine.save(attack_detection)
             return attack_detection.id
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_report(self, attack_detaction_id: str) -> str:
+        try:
+            attack_detection = await self.mongodb_engine.find_one(
+                AttackDetection,
+                AttackDetection.id == ObjectId(attack_detaction_id)
+            )
+            return attack_detection.report
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")

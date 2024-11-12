@@ -38,6 +38,16 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+    async def find_prompt_session(self, prompt_session_id: str) -> PromptSession:
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            return prompt_session
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
     async def get_all_prompt(self) -> list:
         try:
             prompts = await self.mongodb_engine.find(PromptSession)
@@ -130,7 +140,7 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def find_recommend_data(self, prompt_session_id: str):
+    async def find_recommend_data(self, prompt_session_id: str) -> tuple[list, list]:
         try:
             prompt_session = await self.mongodb_engine.find_one(
                 PromptSession,

@@ -6,7 +6,7 @@ from services.gpt_service import GPTService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
-from schemas.prompt_schema import PromptChatStreamResponseSchema
+from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
 
 
 class PromptService:
@@ -26,7 +26,29 @@ class PromptService:
 
     async def get_prompt_chats(self, prompt_session_id: str):
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
-        return await self.prompt_repository.get_prompt_chats(prompt_session_id)
+
+        prompt_chats = await self.prompt_repository.get_prompt_chats(prompt_session_id)
+        chats = [
+            GetPromptContentsSchema(role=chat.role, content=chat.content)
+            for chat in prompt_chats
+        ]
+
+        report = None
+        recommend_questions = None
+
+        # 공격에 대한 프롬프트 대화창인 경우 report와 recommend_questions도 같이 반환
+        is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
+        if is_attack_prompt:
+            prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
+            if prompt_session:
+                report = await self.bert_repository.find_report(prompt_session.attack_detection_id)
+                recommend_questions = prompt_session.recommend_questions[:3]
+
+        return GetPromptContentsResponseSchema(
+            chats=chats,
+            report=report,
+            init_recommend_questions=recommend_questions
+        )
 
     async def _classify_persona(self, query):
         classify_prompt = self.init_prompts["Classify"]
@@ -67,7 +89,13 @@ class PromptService:
 
     def _create_stream_response(self, status="processing", type=None, data=None):
         if data is not None:
-            data = json.dumps(data, ensure_ascii=False).replace('\"', '') if isinstance(data, dict) else data.replace('\"', '')
+            if isinstance(data, dict):
+                data = json.dumps(data, ensure_ascii=False).replace('\"', '')
+            elif isinstance(data, str):
+                data = data.replace('\"', '')
+            elif isinstance(data, list):
+                pass
+
         response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
         return json.dumps(response.dict(), ensure_ascii=False) + "\n"
 
@@ -110,20 +138,6 @@ class PromptService:
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Policy":
             pass
-            # original_policy = self.asset_repository.find_policy()  # 구현필요
-            # least_privilege_policy = self.bert_repository.find_lpp()  # 구현필요
-
-            # policy_content = self.init_prompts["Policy"][0]["content"].format(
-            #     original_policy=original_policy,
-            #     least_privilege_policy=least_privilege_policy
-            # )
-            # policy_prompt = [{"role": "system", "content": policy_content}]
-            # policy_prompt.append(query)
-
-            # assistant_response = ""
-            # async for chunk in self.gpt_service.stream_response(policy_prompt):
-            #     assistant_response += chunk
-            #     yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Normal":
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response([{"role": "user", "content": user_question}]):

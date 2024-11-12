@@ -28,9 +28,10 @@ class BERTService:
 
     async def _create_recommend_questions(self, attack_info: dict, report: str):
         recommend_content = self.init_prompts["Recommend"][0]["content"].format(
-            Tatic=attack_info["attack_type"][0],
+            attack_type=attack_info["attack_type"][0],
             report=report,
             logs=attack_info["logs"]
+            # Subject=
         )
         recommend_prompt = [{"role": "system", "content": recommend_content}]
 
