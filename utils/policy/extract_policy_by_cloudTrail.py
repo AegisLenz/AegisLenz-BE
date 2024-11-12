@@ -1,20 +1,18 @@
 import os
-from policy.common_utils import load_json, merge_policies, map_etc
-from policy.s3_policy_mapper import s3_policy_mapper
-from policy.ec2_policy_mapper import ec2_policy_mapper
-from policy.iam_policy_mapper import iam_policy_mapper
+from utils.policy.common_utils import load_json, merge_policies, map_etc
+from utils.policy.s3_policy_mapper import s3_policy_mapper
+from utils.policy.ec2_policy_mapper import ec2_policy_mapper
+from utils.policy.iam_policy_mapper import iam_policy_mapper
 
 
-def clustering_by_username(file_path):
-    logs = load_json(file_path).get("Records",[])
+def clustering_by_username(logs):
     cluster = {}
     for log in logs:
-        userIdentity = log.get("userIdentity",{})
-        userName = userIdentity.get("userName")
-        if userName not in cluster:
-            cluster[userName] = [] 
-        cluster[userName].append(log)
-
+        user_identity = log.get("userIdentity", {})
+        user_name = user_identity.get("userName")
+        if user_name not in cluster:
+            cluster[user_name] = []
+        cluster[user_name].append(log)
     return cluster
 
 
@@ -25,7 +23,7 @@ def making_policy(log_entry):
 
     # S3 관련 정책 매핑
     if event_source == 's3.amazonaws.com':
-        specific_policy_path = os.path.join("./AWSDatabase/S3", f'{event_name.casefold()}.json')
+        specific_policy_path = os.path.join("./iam-policy/AWSDatabase/S3", f'{event_name.casefold()}.json')
         if os.path.exists(specific_policy_path):
             policy_data = load_json(specific_policy_path)
             policy = s3_policy_mapper(log_entry, policy_data)
@@ -34,7 +32,7 @@ def making_policy(log_entry):
 
     # EC2 관련 정책 매핑
     elif event_source == 'ec2.amazonaws.com':
-        specific_policy_path = os.path.join("./AWSDatabase/EC2", f'{event_name.casefold()}.json')
+        specific_policy_path = os.path.join("./iam-policy/AWSDatabase/EC2", f'{event_name.casefold()}.json')
         if os.path.exists(specific_policy_path):
             policy_data = load_json(specific_policy_path)
             policy = ec2_policy_mapper(log_entry, policy_data)
@@ -52,20 +50,22 @@ def making_policy(log_entry):
     return policy
 
 
-# CloudTrail 로그 파일에서 최소 권한 정책을 추출하는 함수
-def extract_policy_by_cloudTrail(file_path):
-    logs = load_json(file_path).get("Records",[])
+def extract_policy_by_cloudTrail():
+    # ES에서 가져와야 하는 로그. 일단 sample data로 대체
+    file_path = "./iam-policy/src/sample_data/event_history.json"
+
+    logs = load_json(file_path).get("Records", [])
     if not isinstance(logs, list):
         print("Error: The log file does not contain a valid list of log entries.")
         return
     
     normal_log = []
     all_policies = []
-    cluster = clustering_by_username(file_path)
     policies = {}
-    for userName in cluster:
-        #attack에서만 단독적으로 사용된 권한 제외
-        for log_entry in cluster[userName]:
+    cluster = clustering_by_username(logs)
+    for user_name in cluster:
+        # Attack에서만 단독적으로 사용된 권한 제외
+        for log_entry in cluster[user_name]:
             if not isinstance(log_entry, dict):
                 print("Error: Log entry is not a valid dictionary.")
                 continue
@@ -75,7 +75,8 @@ def extract_policy_by_cloudTrail(file_path):
             if policy:
                 if isAttack is None:
                     normal_log.append(log_entry)
-        #Attack고려한 최소권한 추출
+        
+        # Attack 고려한 최소권한 추출
         for log_entry in normal_log:
             if not isinstance(log_entry, dict):
                 print("Error: Log entry is not a valid dictionary.")
@@ -89,7 +90,7 @@ def extract_policy_by_cloudTrail(file_path):
             return
         final_policy = merge_policies(all_policies)
 
-        if userName not in policies:
-            policies[userName] = []
-        policies[userName].append(final_policy)
+        if user_name not in policies:
+            policies[user_name] = []
+        policies[user_name].append(final_policy)
     return policies

@@ -8,15 +8,14 @@ class PolicyService:
     def __init__(self, user_repository: UserRepository = Depends()):
         self.user_repository = user_repository
 
-    # CloudTrail 로그와 사용자의 AttachedPolicies를 기반으로 최소 권한 정책을 생성
-    async def generate_least_privilege_policy(self, log_path: str, user_id: str):
-        # 사용자 기존 정책 가져오기
+    async def generate_least_privilege_policy(self, user_id: str) -> dict:
+        # 1. 사용자 기존 정책 가져오기
         user_policy = await self.user_repository.get_user_policies(user_id)
 
-        # CloudTrail 로그 기반 최소 권한 정책 생성
-        clustered_policy_by_cloudtrail = await extract_policy_by_cloudTrail(log_path)
+        # 2. CloudTrail 로그 기반 최소 권한 정책 생성
+        clustered_policy_by_cloudtrail = extract_policy_by_cloudTrail()
 
-        # 사용자 정책과 최소 권한 정책 비교
+        # 3. 사용자 정책과 최소 권한 정책 비교
         should_remove_action = clustered_compare_policy(user_policy, clustered_policy_by_cloudtrail)
         converted_actions = {k: [list(v) for v in val] for k, val in should_remove_action.items()}
 

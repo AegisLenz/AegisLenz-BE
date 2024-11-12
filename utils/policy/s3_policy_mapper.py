@@ -1,5 +1,4 @@
-# policy/s3_policy_mapper.py
-from policy.common_utils import generate_least_privilege_policy
+from utils.policy.common_utils import generate_least_privilege_policy
 
 def s3_policy_mapper(log, policy_data):
     """S3 정책 생성."""

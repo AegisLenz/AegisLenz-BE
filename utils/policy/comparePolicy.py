@@ -1,4 +1,3 @@
-# policy/comparePolicy.py
 import fnmatch
 
 def clustered_compare_policy(user_policies, clustered_policy_by_cloudtrail):

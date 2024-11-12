@@ -1,5 +1,4 @@
-# policy/iam_policy_mapper.py
-from policy.common_utils import extract_resource_from_log, generate_least_privilege_policy
+from utils.policy.common_utils import extract_resource_from_log, generate_least_privilege_policy
 
 def iam_map_resource(log):
     account_id = log.get("userIdentity", {}).get("accountId")

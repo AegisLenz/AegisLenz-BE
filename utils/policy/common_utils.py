@@ -1,6 +1,4 @@
-# policy/common_utils.py
 import json
-import os
 
 def load_json(file_path):
     """JSON 파일을 로드."""
