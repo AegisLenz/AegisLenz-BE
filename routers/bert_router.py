@@ -1,5 +1,3 @@
-# BERT 모델을 이용해 로그 데이터를 예측하는 API 엔드포인트를 제공하는 파일
-
 import os
 import json
 import asyncio
@@ -11,7 +9,6 @@ from schemas.bert_schema import PredictionSchema
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # Elasticsearch 클라이언트 설정

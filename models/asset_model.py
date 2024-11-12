@@ -1,5 +1,3 @@
-#AWS 자산(EC2, IAM 사용자, S3 버킷 등)의 구조를 정의하는 파일
-#MongoDB에 각 자산의 세부 정보를 저장하기 위해 ODM(객체 데이터 매핑)을 사용해 모델을 정의하고 있다.
 from odmantic import Model, EmbeddedModel
 from typing import List, Optional
 from datetime import datetime

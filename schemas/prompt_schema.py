@@ -1,4 +1,3 @@
-# 프롬프트 세션과 대화 스트림의 요청과 응답 형식을 정의
 from pydantic import BaseModel
 from odmantic import ObjectId
 from typing import Optional, Union, List
