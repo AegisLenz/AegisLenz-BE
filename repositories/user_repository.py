@@ -1,19 +1,17 @@
 from fastapi import HTTPException
 from models.user_model import User
-from core.mongodb_driver import mongodb  # MongoDB와의 연결을 담당하는 mongodb 인스턴스를 가져옴. DB 접속, 저장, 검색 가능
-from models.asset_model import UserAsset  # UserAsset 모델. 자산 정보를 mongodb에 저장할 때 사용
+from core.mongodb_driver import mongodb
+from models.asset_model import UserAsset
 
 
-#사용과와 관련된 데이터베이스 작업을 수행하는 함수를 포함함
 class UserRepository:
-    def __init__(self): #UserRepository 클래스의 인스턴스가 생성될 때 자동으로 실행됨
+    def __init__(self):
         self.user = User(name="John Doe", age=30, email="johndoe@example.com")  # 테스트 유저 데이터
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    #비동기 함수. mongodb에 사용자를 저장하는 역할
     async def save_user(self, engine):
-        new_user = await engine.save(self.user) #db에 사용자 저장이 완료될 때까지 기다림
+        new_user = await engine.save(self.user)
         return new_user
     
     async def get_user_asset(self, user_id: str, Assettype: str, engine):
