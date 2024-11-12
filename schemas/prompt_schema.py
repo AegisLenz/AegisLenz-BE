@@ -66,12 +66,18 @@ class GetPromptContentsResponseSchema(BaseModel):
     init_recommend_questions: Optional[List[str]]
 
     class Config:
-        json_schema_extra = {
+        schema_extra = {
             "example": {
                 "chats": [
                     {"role": "user", "content": "자산 보여줘"},
                     {"role": "assistant", "content": "자산 정보입니다"},
                     {"role": "user", "content": "감사합니다"}
+                ],
+                "report": "Example report data",
+                "init_recommend_questions": [
+                    "지난 일주일 동안 접속한 모든 IAM 계정의 목록을 제공해주세요.",
+                    "각 IAM 계정이 로그인한 정확한 시간과 날짜를 포함하여 보여주세요.",
+                    "해당 기간 동안 가장 많이 접속한 IAM 계정을 확인할 수 있는 방법을 설명해주세요."
                 ]
             }
         }
