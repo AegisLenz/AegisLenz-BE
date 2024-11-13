@@ -13,6 +13,6 @@ class UserService:
      
     async def get_user_IAM_asset(self, user_id: str, engine):
         return await self.user_repository.get_user_asset(user_id, "IAMUser", engine)
-     
+    
     async def get_user_S3_asset(self, user_id: str, engine):
         return await self.user_repository.get_user_asset(user_id, "S3_Bucket", engine)
