@@ -1,0 +1,1363 @@
+[
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:05:10Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "TerminateInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-cli/1.22.34 Python/3.10.12 Linux/6.5.0-1024-aws botocore/1.23.34",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-08f5648cfa2310089"
+                    }
+                ]
+            }
+        },
+        "responseElements": {
+            "requestId": "6d89b7ef-fc42-477a-965b-00533f214d8c",
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-08f5648cfa2310089",
+                        "currentState": {
+                            "code": 32,
+                            "name": "shutting-down"
+                        },
+                        "previousState": {
+                            "code": 16,
+                            "name": "running"
+                        }
+                    }
+                ]
+            }
+        },
+        "requestID": "6d89b7ef-fc42-477a-965b-00533f214d8c",
+        "eventID": "990c4344-36a6-41ce-890e-9850180fd0df",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0040 - Impact"
+        ],
+        "mitreAttackTechniques": [
+            "T1489 - Service Stop"
+        ]
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "webIdFederationData": {},
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:04:44Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "ListInstanceAssociations",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "instanceId": "i-07a8037419d0b5e6e",
+            "maxResults": 20
+        },
+        "responseElements": null,
+        "requestID": "f0faac2b-8f02-4691-90f5-5a33bb431b70",
+        "eventID": "b3a4b45b-52ef-46ba-ae29-1679a3b60eb5",
+        "readOnly": true,
+        "resources": [
+            {
+                "accountId": "891377266362",
+                "ARN": "arn:aws:ec2:us-east-1:891377266362:instance/i-07a8037419d0b5e6e"
+            }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "webIdFederationData": {},
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:04:14Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "ListInstanceAssociations",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "instanceId": "i-07a8037419d0b5e6e",
+            "maxResults": 20
+        },
+        "responseElements": null,
+        "requestID": "d5137e43-43fe-4ddd-8084-733e8acc44d0",
+        "eventID": "6a27b444-e7ec-4285-a993-2f158e0f884e",
+        "readOnly": true,
+        "resources": [
+            {
+                "accountId": "891377266362",
+                "ARN": "arn:aws:ec2:us-east-1:891377266362:instance/i-07a8037419d0b5e6e"
+            }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "webIdFederationData": {},
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:04:04Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "UpdateInstanceInformation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "instanceId": "i-07a8037419d0b5e6e",
+            "agentVersion": "3.3.131.0",
+            "platformType": "Linux",
+            "agentName": "amazon-ssm-agent"
+        },
+        "responseElements": null,
+        "requestID": "230f400d-d1e6-4ab0-b807-575e1b897d28",
+        "eventID": "6e848b7e-a0ed-45e6-b7ac-5d80a05dcc16",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "webIdFederationData": {},
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:04:04Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "UpdateInstanceInformation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "instanceId": "i-07a8037419d0b5e6e",
+            "agentVersion": "3.3.131.0",
+            "agentStatus": "Active",
+            "platformType": "Linux",
+            "platformName": "Ubuntu",
+            "platformVersion": "22.04",
+            "iPAddress": "HIDDEN_DUE_TO_SECURITY_REASONS",
+            "computerName": "ip-10-0-10-50.ec2.internal",
+            "agentName": "amazon-ssm-agent",
+            "availabilityZone": "us-east-1a",
+            "availabilityZoneId": "use1-az6",
+            "sSMConnectionChannel": ""
+        },
+        "responseElements": null,
+        "requestID": "157ce4a8-f510-487f-8198-46358638f62b",
+        "eventID": "d5ef3e86-03db-45f4-af28-c61c55a79f89",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "891377266362:aws:ec2-instance:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/aws:ec2-instance/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25FQS3RZUQ",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "891377266362:aws:ec2-instance",
+                    "arn": "arn:aws:iam::891377266362:role/aws:ec2-instance",
+                    "accountId": "891377266362",
+                    "userName": "aws:ec2-instance"
+                },
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:23Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:03:59Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "RegisterManagedInstance",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwUqXrtybAbLM5sQRE0jhtdl+f5ui8Lx1b6ULuJ/kdQm3RC/dCmwsH3LJPfd7ckvO0fFKZLVRDDXcr5juszC7rey8rtRp4qnF9MlMtsggBqPUoN0TiTU6s11y7y9C9N/JFypARQo2jBHYM+3MCtYDuloSmZ0pbnQ4vRDiYw7m1kttiOWtDeBVAJGUg+WhJstsL0V1dLg0pgyQhU8Ns4ki5gOPqL0F4/+OAaCt1BDFtg6e/Hlm18knU50lIpaO6NyXSXn7g+PyhK1PCJMyOUAuLx4IkpZBrxlk3sCOflVUtV4kzx/Rikwd3MHtMQVTH6bNb5aNtZGF3vIeMEEZDorPHwIDAQAB",
+            "publicKeyType": "Rsa",
+            "fingerprint": "i-07a8037419d0b5e6e"
+        },
+        "responseElements": {
+            "instanceId": "i-07a8037419d0b5e6e"
+        },
+        "requestID": "4696272f-7386-4cec-be80-330de370614d",
+        "eventID": "02c65ab9-6653-41e0-8ccd-4a589dd00403",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "AROA47CRZV25HW3AHJ5P5:i-07a8037419d0b5e6e",
+            "arn": "arn:aws:sts::891377266362:assumed-role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0/i-07a8037419d0b5e6e",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROA47CRZV25HW3AHJ5P5",
+                    "arn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+                    "accountId": "891377266362",
+                    "userName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+                },
+                "webIdFederationData": {},
+                "attributes": {
+                    "creationDate": "2024-09-14T08:03:24Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:03:59Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "UpdateInstanceInformation",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "98.81.214.67",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "instanceId": "i-07a8037419d0b5e6e",
+            "agentVersion": "3.3.131.0",
+            "platformType": "Linux",
+            "agentName": "amazon-ssm-agent"
+        },
+        "responseElements": null,
+        "requestID": "6a56fcc5-bd35-4970-a8b4-d33564a938f4",
+        "eventID": "a339ffcb-19da-472e-9b63-2d7dd6f57dd2",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:45Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-07a8037419d0b5e6e"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "0203e4b8-d77c-448e-87e2-ec764d4681c1",
+        "eventID": "182dd0df-ab47-4042-815f-bd997989932b",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:34Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-07a8037419d0b5e6e"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "f12471cf-7eb4-4b4b-8b51-eac4c0da6de9",
+        "eventID": "d084488c-ca23-49c0-a0c4-de81518a3781",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "ec2.amazonaws.com"
+        },
+        "eventTime": "2024-09-14T08:03:24Z",
+        "eventSource": "sts.amazonaws.com",
+        "eventName": "AssumeRole",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "ec2.amazonaws.com",
+        "userAgent": "ec2.amazonaws.com",
+        "requestParameters": {
+            "roleArn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+            "roleSessionName": "i-07a8037419d0b5e6e"
+        },
+        "responseElements": {
+            "credentials": {
+                "accessKeyId": "ASIA47CRZV25LPH4IHRQ",
+                "sessionToken": "IQoJb3JpZ2luX2VjEKj//////////wEaCXVzLWVhc3QtMSJIMEYCIQDZLlP9Zb0fUDnmQfL/U65wifBQ7sHWyc770z919E+p0wIhAPEgmonI/H4l21J9uP6Zds16F0SjmQ2BRvPaTJsde/krKsIFCNH//////////wEQABoMODkxMzc3MjY2MzYyIgwPK1yo48BpuJqCLewqlgXYzP9SCDgZXPsbOhDt93f/IaypY6tZbdPxxrYe3yfaiezh533n0jDj3/7a82zyO05/vGyhFAe3zZLHLkzeSv/lNrDi+cnhOq60nzNYmSlTTqTOTfEwJF8gVbdUpm4eth9Fn56sr33hqPNAfOxPe+7Gh2n0TxmZjG4D1BYSK2MgSHeKeTzd5fWiNisGi/t91BvtuWyPYUQ7CO4BtoGti3atQwOtmvWAqdonx/GojnaWl7ucrG82OiLR9lrBi6qKZcPuoHUz1iOMgNPDCgCrWSXAtYHV2HlIVT8UIvbZrK1WeNJrxPFjHmty4mkLhL/0EMgP6X/jZGPadZWTo1/twdBFRrUsefY7nyxqTTe0jjlI2XE5RP0MuBjFJz/Ys8U5Rw0kig+wXXylVDU40H+V/uX36TGlaARHA/sv3E1PmMoI9ZHaN/Gg0pusPo95h1m04jRXjg/wf99KQHZXWXXao45Xz4Gw5t+dGEDPVH9SXXtfDzyHhVzCRWdWd6RSE1Xs8bC412q2YHJVTNQaXg+0cguqIxLsDZ7vreDvjNEIaI7BJMZpyvu29bICX7YNa0dl2z6cLTE3N0rMsdLe7zkc28JHRzIWH8ojnSHjUdv+zAuVi66llOiwFTP+PgRn9xgbv3HF1/iT6L08XOtQvz93I3m8x5MlL0v0XPIBqZa+XJ8evJy5YXELgCEJ17lPR3ZQiYjFuVW7nPfkTEOslwK3CmWz50o6PIdAwpxM8BDn81pbyNiztpLqBVYoXdV131tTdzy5J5Z+Yqe3PGsJzjtb9w+W8ZFP0AlSIuqIjmy/qgdgl8PfGZwAv94UxA9Q3FvUqfaUjTQaRVlygNcuUQN7H9gejDyS7gLpe2dYX6vXROiYwsyFn3vC2jDMhpW3BjqwARTAwsZoV0pP6PCI7pR1v1fcaiRN0rUBC7KPlhIJOpY/ZCEqLa9aL8fYdDV5WXaTSre8zfcxzRCdDUs0aSfwVmviJ/Sn7EfCBUt+bfVtpyp8KnFLWcOhlaB+luoZe53MqZE6ffX2tNc/RSi7yITnGSReEngUZrf9gwX6cJy3Il1ZY31AhbdOQzH8xhc94tlw3LM8iqKQ/+8Pk+652ChZ08IDLiOtGFso9AMdN/TMa8qX",
+                "expiration": "Sep 14, 2024, 2:38:24 PM"
+            }
+        },
+        "requestID": "e6bbb62a-6489-48cc-80b3-5629a0df9d6e",
+        "eventID": "162ef812-a293-3288-9c86-c0b3748fda86",
+        "readOnly": true,
+        "resources": [
+            {
+                "accountId": "891377266362",
+                "type": "AWS::IAM::Role",
+                "ARN": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+            }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "sharedEventID": "63234826-bdb3-400e-99fd-19c665212ded",
+        "eventCategory": "Management"
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "type": "AWSService",
+            "invokedBy": "ec2.amazonaws.com"
+        },
+        "eventTime": "2024-09-14T08:03:24Z",
+        "eventSource": "sts.amazonaws.com",
+        "eventName": "AssumeRole",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "ec2.amazonaws.com",
+        "userAgent": "ec2.amazonaws.com",
+        "requestParameters": {
+            "roleArn": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0",
+            "roleSessionName": "i-07a8037419d0b5e6e"
+        },
+        "responseElements": {
+            "credentials": {
+                "accessKeyId": "ASIA47CRZV25P3BHBKKI",
+                "sessionToken": "IQoJb3JpZ2luX2VjEKj//////////wEaCXVzLWVhc3QtMSJIMEYCIQDEgB0Q9jfdcypmCazvK3dCN1mzFrYlHbsCL9hiid4X8gIhAJTZ284Ss1IywiCLdj0YTtMtbHqDRejoNeak/Nm46oi4KsIFCNH//////////wEQABoMODkxMzc3MjY2MzYyIgz6ioOH955dVonvPooqlgULn/w063ZsdxybJHRhBcFc1sh7Co90KT+7YP/X8m/fFz8VsVAkaOqd43RwmfE9uVg6QwgaVxv7Hns4UxoAB9axyPW4i6L/hLC5OmeF3xXJEnXqI3H35c+fe0R3abdIi7aQgWf3Pz3YMkT9QwlPnkuKPv2E8uCBz9xB0PLYh8oqPGHHhSr6/Yj6vTNDTFQLwLZ079JmWggcolgP0T10vm5fvUZWhf5Q9GlZu4mMpYxnbGyM2YvelKlGmxCAZy3jGTUfrS5Vohrvpmv+NUaZl/aXUxCNgFifTWhnEt9n89J/MzLmN8uI4ZTzVNOPi3G92puIi41HNrsxue9f8Wefo0ifE6xR3fhrN8FNdIT2MurxAMhaD3KuhZy6wtaOW3jL9nDHh1SesQ2qDAtn0h/UTfkgkTgaBaJx+i3J0XojeyBi8F1CaA4xTz47gPgNyk+HydKLABLG3J52Yv3PjGFt88ookHgsMXnNHK0isuepgb4GlDl9rTYwGKv+H9ECY8bi3gqxEqyFWq/pGE3oxv/lHZpzrcCdiGbiRCgjVih+NqUb/E+vuB+O+LXNDr+6vJBRSMTsJxSvMArsdcbEBUBlv0p/nXzukvRmZtOqqHVJzJ3xmau1nTEBUPrpu5Gs9xOGZicTnEdtSbvEQ8Iqxt/mw5RJQtY51KDahuGaaq4pFsb8TFsbve3Bhmafu39Mbr0uUQJ3RHxhASZnno5Mdl0D6/7CR03TbcXoZhwS2ddCU8pDi8DIV76ppS2gHi/B3c2A6RRi+lciN3fDlDDYMrT+ut6eol+xzIgMzMjfv2vbykLdwEFw3n0vdnOs7cNWzJOrdea/UJLf1w+IctPSjREcaQwU8uFUZJk3puc7y9GXVWMZVXJIwVi+fTDMhpW3BjqwAY1LU9b1NLgbdVw7x5931eJvM9Ar7GnIw5/mbzPPnIChGFZ/IGVIo8afVU9t+jyQVsnoITZMDx9WhpEtv+EodJ20sSuXkp5GSHBj2WvP0xxPM1CrDb+LntFFNf5N6xALrwZ3XgJgjdedFm05fmMaYnH1atsLdNNQLm50S1Edu8MkUyxRV0Kn2lqdXS/NSv5afVyB4bCDl2KPJ7Ge2m4qn4O7aj83HS9PEJG07qWlT01z",
+                "expiration": "Sep 14, 2024, 2:38:24 PM"
+            }
+        },
+        "requestID": "e6bbb62a-6489-48cc-80b3-5629a0df9d6e",
+        "eventID": "72f52091-9871-3a0a-b906-13a64c2f4644",
+        "readOnly": true,
+        "resources": [
+            {
+                "accountId": "891377266362",
+                "type": "AWS::IAM::Role",
+                "ARN": "arn:aws:iam::891377266362:role/cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+            }
+        ],
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "sharedEventID": "d1cd1b7f-0521-43d2-8057-fcb08e23a69a",
+        "eventCategory": "Management"
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:22Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-07a8037419d0b5e6e"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "e48129c2-e29a-485b-8d3f-800611a34a80",
+        "eventID": "39f600b2-7cd1-4c84-b539-5b79c5f8b4b7",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:21Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-07a8037419d0b5e6e"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "731e428d-11d2-4402-b5f7-50c38c88b340",
+        "eventID": "68616f5f-a3df-4f60-8182-801cb020aaa3",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.08",
+        "userIdentity": {
+            "accountId": "891377266362",
+            "invokedBy": "ec2.amazonaws.com"
+        },
+        "eventTime": "2024-09-14T08:03:21Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "SharedSnapshotVolumeCreated",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "ec2.amazonaws.com",
+        "userAgent": "ec2.amazonaws.com",
+        "requestParameters": null,
+        "responseElements": null,
+        "eventID": "abe1b81a-5d26-3018-b136-09a51618ddba",
+        "readOnly": false,
+        "eventType": "AwsServiceEvent",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "sharedEventID": "2229a3d1-f1a2-446b-950e-9202df7f3b6b",
+        "serviceEventDetails": {
+            "snapshotId": "snap-0f145ea6b6e45d1e3"
+        },
+        "eventCategory": "Management"
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:19Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "RunInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.run-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "imageId": "ami-09a1c459d70c72b96",
+                        "minCount": 1,
+                        "maxCount": 1,
+                        "keyName": "k1"
+                    }
+                ]
+            },
+            "groupSet": {
+                "items": [
+                    {
+                        "groupId": "sg-0e7b7843370c71e2a"
+                    }
+                ]
+            },
+            "instanceType": "t2.micro",
+            "blockDeviceMapping": {},
+            "monitoring": {
+                "enabled": false
+            },
+            "subnetId": "subnet-05d3059a2907291ff",
+            "disableApiTermination": false,
+            "disableApiStop": false,
+            "clientToken": "0c202c76-d205-4687-85cf-011cead949da",
+            "iamInstanceProfile": {
+                "arn": "arn:aws:iam::891377266362:instance-profile/cg-ec2-meek-instance-profile-iam_privesc_by_attachment_cgidlzglpea0c0"
+            }
+        },
+        "responseElements": {
+            "requestId": "e6bbb62a-6489-48cc-80b3-5629a0df9d6e",
+            "reservationId": "r-0a95f911f5222d550",
+            "ownerId": "891377266362",
+            "groupSet": {},
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-07a8037419d0b5e6e",
+                        "imageId": "ami-09a1c459d70c72b96",
+                        "bootMode": "uefi-preferred",
+                        "currentInstanceBootMode": "legacy-bios",
+                        "instanceState": {
+                            "code": 0,
+                            "name": "pending"
+                        },
+                        "privateDnsName": "ip-10-0-10-50.ec2.internal",
+                        "keyName": "k1",
+                        "amiLaunchIndex": 0,
+                        "productCodes": {},
+                        "instanceType": "t2.micro",
+                        "launchTime": 1726300999000,
+                        "placement": {
+                            "availabilityZone": "us-east-1a",
+                            "tenancy": "default"
+                        },
+                        "monitoring": {
+                            "state": "disabled"
+                        },
+                        "subnetId": "subnet-05d3059a2907291ff",
+                        "vpcId": "vpc-001fbcf8a73e05cef",
+                        "privateIpAddress": "10.0.10.50",
+                        "stateReason": {
+                            "code": "pending",
+                            "message": "pending"
+                        },
+                        "architecture": "x86_64",
+                        "rootDeviceType": "ebs",
+                        "rootDeviceName": "/dev/sda1",
+                        "blockDeviceMapping": {},
+                        "virtualizationType": "hvm",
+                        "hypervisor": "xen",
+                        "clientToken": "0c202c76-d205-4687-85cf-011cead949da",
+                        "groupSet": {
+                            "items": [
+                                {
+                                    "groupId": "sg-0e7b7843370c71e2a",
+                                    "groupName": "cg-ec2-ssh-iam_privesc_by_attachment_cgidlzglpea0c0"
+                                }
+                            ]
+                        },
+                        "sourceDestCheck": true,
+                        "networkInterfaceSet": {
+                            "items": [
+                                {
+                                    "networkInterfaceId": "eni-093ab4976a398b190",
+                                    "subnetId": "subnet-05d3059a2907291ff",
+                                    "vpcId": "vpc-001fbcf8a73e05cef",
+                                    "ownerId": "891377266362",
+                                    "status": "in-use",
+                                    "macAddress": "0e:90:95:57:17:33",
+                                    "privateIpAddress": "10.0.10.50",
+                                    "privateDnsName": "ip-10-0-10-50.ec2.internal",
+                                    "sourceDestCheck": true,
+                                    "interfaceType": "interface",
+                                    "groupSet": {
+                                        "items": [
+                                            {
+                                                "groupId": "sg-0e7b7843370c71e2a",
+                                                "groupName": "cg-ec2-ssh-iam_privesc_by_attachment_cgidlzglpea0c0"
+                                            }
+                                        ]
+                                    },
+                                    "attachment": {
+                                        "attachmentId": "eni-attach-00a8a9ffb7d7e95c8",
+                                        "deviceIndex": 0,
+                                        "networkCardIndex": 0,
+                                        "status": "attaching",
+                                        "attachTime": 1726300999000,
+                                        "deleteOnTermination": true
+                                    },
+                                    "privateIpAddressesSet": {
+                                        "item": [
+                                            {
+                                                "privateIpAddress": "10.0.10.50",
+                                                "privateDnsName": "ip-10-0-10-50.ec2.internal",
+                                                "primary": true
+                                            }
+                                        ]
+                                    },
+                                    "ipv6AddressesSet": {},
+                                    "tagSet": {}
+                                }
+                            ]
+                        },
+                        "iamInstanceProfile": {
+                            "arn": "arn:aws:iam::891377266362:instance-profile/cg-ec2-meek-instance-profile-iam_privesc_by_attachment_cgidlzglpea0c0",
+                            "id": "AIPA47CRZV25JWYOOI6Y2"
+                        },
+                        "ebsOptimized": false,
+                        "enaSupport": true,
+                        "cpuOptions": {
+                            "coreCount": 1,
+                            "threadsPerCore": 1
+                        },
+                        "capacityReservationSpecification": {
+                            "capacityReservationPreference": "open"
+                        },
+                        "enclaveOptions": {
+                            "enabled": false
+                        },
+                        "metadataOptions": {
+                            "state": "pending",
+                            "httpTokens": "optional",
+                            "httpPutResponseHopLimit": 1,
+                            "httpEndpoint": "enabled",
+                            "httpProtocolIpv4": "enabled",
+                            "httpProtocolIpv6": "disabled",
+                            "instanceMetadataTags": "disabled"
+                        },
+                        "maintenanceOptions": {
+                            "autoRecovery": "default"
+                        },
+                        "privateDnsNameOptions": {
+                            "hostnameType": "ip-name",
+                            "enableResourceNameDnsARecord": false,
+                            "enableResourceNameDnsAAAARecord": false
+                        }
+                    }
+                ]
+            }
+        },
+        "requestID": "e6bbb62a-6489-48cc-80b3-5629a0df9d6e",
+        "eventID": "17ce5ccf-e9ee-46fe-a16d-aa55b742092d",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0005 - Defense Evasion"
+        ],
+        "mitreAttackTechniques": [
+            "T1578 - Modify Cloud Compute Infrastructure"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:17Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "CreateKeyPair",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.create-key-pair",
+        "requestParameters": {
+            "keyName": "k1",
+            "keyFormat": "pem"
+        },
+        "responseElements": {
+            "requestId": "ae9500db-6a89-4531-a386-d5da0303d8d8",
+            "keyName": "k1",
+            "keyFingerprint": "c2:65:44:3c:6c:fd:e3:59:9f:2a:06:9a:6c:74:66:53:78:dd:e6:42",
+            "keyPairId": "key-0cfb98c0541c6eab6",
+            "keyMaterial": "<sensitiveDataRemoved>"
+        },
+        "requestID": "ae9500db-6a89-4531-a386-d5da0303d8d8",
+        "eventID": "326be679-51cb-47cb-8dcc-1dcd481fd47e",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0003 - Persistence"
+        ],
+        "mitreAttackTechniques": [
+            "T1098 - Account Manipulation"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "AssumedRole",
+            "principalId": "891377266362:aws:ec2-instance:i-08f5648cfa2310089",
+            "arn": "arn:aws:sts::891377266362:assumed-role/aws:ec2-instance/i-08f5648cfa2310089",
+            "accountId": "891377266362",
+            "accessKeyId": "ASIA47CRZV25FJI4FDH7",
+            "sessionContext": {
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "891377266362:aws:ec2-instance",
+                    "arn": "arn:aws:iam::891377266362:role/aws:ec2-instance",
+                    "accountId": "891377266362",
+                    "userName": "aws:ec2-instance"
+                },
+                "attributes": {
+                    "creationDate": "2024-09-14T08:02:50Z",
+                    "mfaAuthenticated": "false"
+                },
+                "ec2RoleDelivery": "2.0"
+            }
+        },
+        "eventTime": "2024-09-14T08:03:17Z",
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "RegisterManagedInstance",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "34.207.198.208",
+        "userAgent": "aws-sdk-go/1.44.260 (go1.21.5; linux; amd64) amazon-ssm-agent/",
+        "requestParameters": {
+            "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxVG3cMZP39gZBH6OYs18PhoB7O20OhvHEK6tFxLt+dwlBNyj1hDkDRputxi+YLdAjV4tNwvOPc9c9l7QrXxN3Phpu89SAUDI/io9mYYO0H/5q4b0owqu+2EDI8A1RNJi4m/ZyKIcN0FW/Rj+NyKIh90/hYslPJUAziCA6DZUd09FbEe4QLJYm39FqsgRzLJdAAsu0Ne3hA9P0igsqv6+s7EreCQqONM7ydzSXTEw/osUEksiyEafxWxumd6DHcaeqvQWkmNzbrOBG34Ii/HXq2xj8b3gyoHFxOsK5MFOC/h4nJN1UQL+kw9eqmEjUZlR2749pcviXsPZfab6dNIOdQIDAQAB",
+            "publicKeyType": "Rsa",
+            "fingerprint": "i-08f5648cfa2310089"
+        },
+        "responseElements": {
+            "instanceId": "i-08f5648cfa2310089"
+        },
+        "requestID": "9490ae46-0de1-4547-94a5-c071c40930ed",
+        "eventID": "deeef818-1120-4038-8718-e8b746b1b4e7",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.2",
+            "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "clientProvidedHostHeader": "ssm.us-east-1.amazonaws.com"
+        }
+    },
+    {
+        "eventVersion": "1.09",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:15Z",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "AddRoleToInstanceProfile",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#iam.add-role-to-instance-profile",
+        "requestParameters": {
+            "instanceProfileName": "cg-ec2-meek-instance-profile-iam_privesc_by_attachment_cgidlzglpea0c0",
+            "roleName": "cg-ec2-mighty-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+        },
+        "responseElements": null,
+        "requestID": "bba52bf5-e20a-497b-96df-85a6453109ba",
+        "eventID": "b5a3c38d-864e-4bc5-a3e2-8f8a7ae8ceaa",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "iam.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0004 - Privilege Escalation"
+        ],
+        "mitreAttackTechniques": [
+            "T1098 - Account Manipulation"
+        ]
+    },
+    {
+        "eventVersion": "1.09",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:14Z",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "RemoveRoleFromInstanceProfile",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#iam.remove-role-from-instance-profile",
+        "requestParameters": {
+            "instanceProfileName": "cg-ec2-meek-instance-profile-iam_privesc_by_attachment_cgidlzglpea0c0",
+            "roleName": "cg-ec2-meek-role-iam_privesc_by_attachment_cgidlzglpea0c0"
+        },
+        "responseElements": null,
+        "requestID": "eece89a5-3ffd-46fb-8e3e-aed811347528",
+        "eventID": "896e8982-73fc-486a-b7a2-e4e002231d3f",
+        "readOnly": false,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "iam.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0040 - Impact"
+        ],
+        "mitreAttackTechniques": [
+            "T1531 - Account Access Removal"
+        ]
+    },
+    {
+        "eventVersion": "1.09",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:13Z",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "ListInstanceProfiles",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#iam.list-instance-profiles",
+        "requestParameters": null,
+        "responseElements": null,
+        "requestID": "b0cdfaab-fb65-41ed-afde-3a48cb8e9e7d",
+        "eventID": "273a9045-ec0a-455e-820a-a6ec43d1b4be",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "iam.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1087 - Account Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:12Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-08f5648cfa2310089"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "628d4b2a-0488-4043-9688-97543a43d866",
+        "eventID": "5167decf-5905-4447-bdac-1c5b4a9e8635",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:10Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeSubnets",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-subnets",
+        "requestParameters": {
+            "subnetSet": {},
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "47324718-b902-4c45-a447-6a129ef909b3",
+        "eventID": "a9ccddf3-c1a2-4e68-86be-3a63e273b4e4",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:09Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {
+                "items": [
+                    {
+                        "instanceId": "i-08f5648cfa2310089"
+                    }
+                ]
+            },
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "04c1e86a-06a0-49f9-b62e-487db9426550",
+        "eventID": "bbbe828a-90c4-418f-9076-2c2832d91944",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:07Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#ec2.describe-instances",
+        "requestParameters": {
+            "instancesSet": {},
+            "filterSet": {}
+        },
+        "responseElements": null,
+        "requestID": "576bb025-6e74-4233-aa13-123ff419ee75",
+        "eventID": "3c6b3628-2e4b-4038-ad08-97660991f37c",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1580 - Cloud Infrastructure Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.09",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:06Z",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "ListInstanceProfiles",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#iam.list-instance-profiles",
+        "requestParameters": null,
+        "responseElements": null,
+        "requestID": "8c9f0d58-699a-47da-86a7-b2772ad8bfef",
+        "eventID": "02b00054-6c81-44f4-b6ad-97f41646a521",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "iam.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1087 - Account Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.09",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25DDG7VXXCV",
+            "arn": "arn:aws:iam::891377266362:user/qwer2",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25N2ZJFE56",
+            "userName": "qwer2"
+        },
+        "eventTime": "2024-09-14T08:03:05Z",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "ListRoles",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "aws-cli/2.17.42 md/awscrt#0.21.2 ua/2.0 os/macos#23.0.0 md/arch#arm64 lang/python#3.11.9 md/pyimpl#CPython cfg/retry-mode#standard md/installer#source md/prompt#off md/command#iam.list-roles",
+        "requestParameters": null,
+        "responseElements": null,
+        "requestID": "409f96f3-4754-4d4b-bf44-bbf3a4076809",
+        "eventID": "b77d7bc2-91d2-4ecd-8b28-af16a612d4da",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "iam.amazonaws.com"
+        },
+        "mitreAttackTactics": [
+            "TA0007 - Discovery"
+        ],
+        "mitreAttackTechniques": [
+            "T1087 - Account Discovery"
+        ]
+    },
+    {
+        "eventVersion": "1.10",
+        "userIdentity": {
+            "type": "IAMUser",
+            "principalId": "AIDA47CRZV25LCIEUBFTX",
+            "arn": "arn:aws:iam::891377266362:user/Administrator",
+            "accountId": "891377266362",
+            "accessKeyId": "AKIA47CRZV25FUNRWWHZ",
+            "userName": "Administrator"
+        },
+        "eventTime": "2024-09-14T08:03:03Z",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstanceCreditSpecifications",
+        "awsRegion": "us-east-1",
+        "sourceIPAddress": "211.212.221.147",
+        "userAgent": "APN/1.0 HashiCorp/1.0 Terraform/1.5.7 (+https://www.terraform.io) terraform-provider-aws/5.67.0 (+https://registry.terraform.io/providers/hashicorp/aws) m/C aws-sdk-go-v2/1.30.5 os/macos lang/go#1.22.6 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.177.3",
+        "requestParameters": {
+            "DescribeInstanceCreditSpecificationsRequest": {
+                "InstanceId": {
+                    "tag": 1,
+                    "content": "i-08f5648cfa2310089"
+                }
+            }
+        },
+        "responseElements": null,
+        "requestID": "0d5236fb-3935-4df0-9788-dc64c01c22a3",
+        "eventID": "7055e60a-1bf3-464d-aefc-e29292c9a406",
+        "readOnly": true,
+        "eventType": "AwsApiCall",
+        "managementEvent": true,
+        "recipientAccountId": "891377266362",
+        "eventCategory": "Management",
+        "tlsDetails": {
+            "tlsVersion": "TLSv1.3",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+        }
+    }
+]
