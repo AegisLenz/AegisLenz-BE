@@ -20,6 +20,7 @@ class RedisDriver:
         try:
             key = f"logs:{source_ip}"
             await self.redis_client.rpush(key, json.dumps(log_data))
+            # 큐의 길이가 max_logs를 초과하면 가장 오래된 항목을 제거
             if await self.redis_client.llen(key) > max_logs:
                 await self.redis_client.lpop(key)
         except Exception as e:
