@@ -9,7 +9,6 @@ from schemas.bert_schema import PredictionSchema
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # Elasticsearch 클라이언트 설정

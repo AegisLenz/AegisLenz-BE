@@ -66,11 +66,9 @@ class PromptRepository:
         try:
             db_query = json.loads(db_query)
             
-            # 컬렉션 이름과 find 조건 추출
             collection_name = db_query.get("collection")
             find_filter = db_query.get("find", {})
 
-            # MongoDB 컬렉션 접근 및 조회
             collection = self.mongodb_client[collection_name]
             cursor = collection.find(find_filter)
             result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
@@ -80,16 +78,13 @@ class PromptRepository:
 
     async def load_conversation_history(self, prompt_session_id: str) -> list:
         try:
-            # Redis에서 conversation history 조회
             conversation_history = await self.redis_client.get_key(prompt_session_id)
             if conversation_history:
                 return json.loads(conversation_history)
             
-            # Redis에 없을 경우 MongoDB에서 조회
             object_id = ObjectId(prompt_session_id)
             prompt_message = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == object_id)
             if prompt_message:
-                # 각 Message 객체를 JSON 형식으로 변환
                 formatted_history = [
                     {
                         "timestamp": msg.timestamp.isoformat() if isinstance(msg.timestamp, datetime) else msg["timestamp"],
@@ -105,7 +100,7 @@ class PromptRepository:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def save_conversation_history(self, prompt_session_id: str, conversation_history: list) -> None:
-        try:            
+        try:
             # Redis에 저장
             await self.redis_client.set_key(prompt_session_id, json.dumps(conversation_history, ensure_ascii=False))
             

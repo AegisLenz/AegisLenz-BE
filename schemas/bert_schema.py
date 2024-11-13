@@ -5,4 +5,4 @@ class PredictionSchema(BaseModel):
     prediction: str
 
     class Config:
-        from_attributes = True  # ORM 모델과 호환되도록 설정
+        from_attributes = True
