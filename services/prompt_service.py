@@ -6,15 +6,19 @@ from services.gpt_service import GPTService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
+from repositories.user_repository import UserRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
-
+from utils.policy.filter_original_policy import filter_original_policy
+from core.logging_config import setup_logger
+logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 asset_repository: AssetRepository = Depends(), gpt_service: GPTService = Depends()):
+                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
+        self.user_repository = user_repository
         self.gpt_service = gpt_service
         self.init_prompts = self.gpt_service._load_prompts()
     
@@ -108,6 +112,7 @@ class PromptService:
 
         # 분류기 페르소나 결과
         persona_type = await self._classify_persona(query)
+        logger.info(persona_type)
 
         # 분류기 결과에 따른 페르소나 로직 수행
         if persona_type in ["ES", "DB"]:
@@ -140,7 +145,28 @@ class PromptService:
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Policy":
-            pass
+            user_id = "1"  # 임시 유저 아이디.
+            original_policy = await self.user_repository.get_user_policies(user_id)
+            
+            prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
+            if prompt_session:
+                attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+                if attack_detection and attack_detection.least_privilege_policy:
+                    least_privilege_policy = attack_detection.least_privilege_policy["least_privilege_policy"]
+
+            filtered_original_policy = filter_original_policy(original_policy, least_privilege_policy)
+
+            policy_content = self.init_prompts["Policy"][0]["content"].format(
+                original_policy=json.dumps(filtered_original_policy, indent=2),
+                least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
+            )
+            policy_prompt = [{"role": "system", "content": policy_content}]
+            policy_prompt.append({"role": "user", "content": user_question})
+
+            assistant_response = ""
+            async for chunk in self.gpt_service.stream_response(policy_prompt):
+                assistant_response += chunk
+                yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Normal":
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response([{"role": "user", "content": user_question}]):
