@@ -41,12 +41,15 @@ class PromptService:
         if is_attack_prompt:
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
             if prompt_session:
-                report = await self.bert_repository.find_report(prompt_session.attack_detection_id)
+                attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+                report = attack_detection.report
+                least_privilege_policy = attack_detection.least_privilege_policy
                 recommend_questions = prompt_session.recommend_questions[:3]
 
         return GetPromptContentsResponseSchema(
             chats=chats,
             report=report,
+            least_privilege_policy=least_privilege_policy,
             init_recommend_questions=recommend_questions
         )
 
