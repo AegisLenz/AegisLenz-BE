@@ -6,6 +6,7 @@ from transformers import BertTokenizer, BertForTokenClassification
 
 load_dotenv()
 
+
 def load_model():
     model_path = os.getenv("MODEL_PATH")
     label_encoder_path = os.getenv("LABEL_ENCODER_PATH")

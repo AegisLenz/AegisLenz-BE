@@ -4,11 +4,13 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
 MONGODB_HOST = os.getenv("MONGODB_HOST")
 MONGODB_PORT = os.getenv("MONGODB_PORT")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE")
 MONGODB_USER = os.getenv("MONGO_INITDB_ROOT_USERNAME")
 MONGODB_PASSWORD = os.getenv("MONGO_INITDB_ROOT_PASSWORD")
+
 
 class MongoDB:
     _instance = None
@@ -21,7 +23,7 @@ class MongoDB:
             cls._instance.engine = None
         return cls._instance
     
-    async def connect(self):      
+    async def connect(self):
         # MongoDB 클라이언트 생성
         client = AsyncIOMotorClient(self.mongodb_url)
         self.client = client[MONGODB_DATABASE]

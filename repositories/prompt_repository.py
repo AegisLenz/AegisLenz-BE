@@ -1,32 +1,50 @@
 import os
 import json
-import datetime
+from typing import Optional, List, Dict
 from odmantic import ObjectId
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from elasticsearch import AsyncElasticsearch
 from datetime import datetime, timedelta, timezone
-from models.prompt_model import PromptMessage, PromptSession, Message
+from models.prompt_model import PromptSession, PromptChat
 from core.redis_driver import RedisDriver
 from core.mongodb_driver import mongodb
+from utils.prompt.convert_dates_in_query import convert_dates_in_query
 
-load_dotenv()
 
 class PromptRepository:
     def __init__(self):
         self.redis_client = RedisDriver()
+        load_dotenv()
         self.es_client = AsyncElasticsearch(f"{os.getenv("ES_HOST")}:{os.getenv("ES_PORT")}")
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self) -> str:
+    async def create_prompt(self, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None, recommend_questions: Optional[List[str]] = None) -> str:
         try:
+            attack_detection_id = ObjectId(attack_detection_id) if attack_detection_id else None
+            recommend_history = recommend_history or []
+            recommend_questions = recommend_questions or []
+
             prompt_session = PromptSession(
+                attack_detection_id=attack_detection_id,
+                recommend_history=recommend_history,
+                recommend_questions=recommend_questions,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             result = await self.mongodb_engine.save(prompt_session)
             return result.id
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+    async def find_prompt_session(self, prompt_session_id: str) -> PromptSession:
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            return prompt_session
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
@@ -38,26 +56,51 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def get_prompt_contents(self, prompt_session_id: str) -> list:
+    async def get_prompt_chats(self, prompt_session_id: str) -> list:
         try:
-            prompt_session = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == ObjectId(prompt_session_id))
-            if prompt_session and hasattr(prompt_session, "messages"):
-                return prompt_session.messages
-            return []
+            prompt_chats = await self.mongodb_engine.find(
+                PromptChat,
+                PromptChat.prompt_session_id == ObjectId(prompt_session_id),
+                sort=PromptChat.created_at
+            )
+            return prompt_chats if prompt_chats else []
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def validate_prompt_session(self, prompt_session_id: str) -> None:
-        if not ObjectId.is_valid(prompt_session_id):
-            raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
- 
-        prompt_session = await self.mongodb_engine.find_one(PromptSession, PromptSession.id == ObjectId(prompt_session_id))
-        if prompt_session is None:
-            raise HTTPException(status_code=404, detail="Prompt session not found")
+        try:
+            if not ObjectId.is_valid(prompt_session_id):
+                raise HTTPException(status_code=400, detail="Invalid prompt_session_id format")
+    
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            if prompt_session is None:
+                raise HTTPException(status_code=404, detail="Prompt session not found")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def check_attack_detection_id_exist(self, prompt_session_id: str) -> bool:
+        try:
+            result = await self.mongodb_engine.find_one(
+                PromptSession,
+                {
+                    "_id": ObjectId(prompt_session_id),
+                    "attack_detection_id": {"$exists": True, "$ne": None}
+                }
+            )
+            return result is not None
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
     async def find_es_document(self, es_query) -> list:
         try:
-            query_result = await self.es_client.search(index=os.getenv("INDEX_NAME"), body=es_query)
+            query_result = await self.es_client.search(
+                index=os.getenv("INDEX_NAME"),
+                body=es_query
+            )
             return query_result['hits']['hits']
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
@@ -65,67 +108,59 @@ class PromptRepository:
     async def find_db_document(self, db_query) -> list:
         try:
             db_query = json.loads(db_query)
-            
-            # 컬렉션 이름과 find 조건 추출
-            collection_name = db_query.get("collection")
-            find_filter = db_query.get("find", {})
-
-            # MongoDB 컬렉션 접근 및 조회
-            collection = self.mongodb_client[collection_name]
-            cursor = collection.find(find_filter)
-            result = await cursor.to_list(length=100)  # 결과는 최대 100개까지 가져온다.
-            return result
+            db_query = convert_dates_in_query(db_query)
+            results = await self.mongodb_client.user_assets.find(db_query).to_list(length=100)  # 최대 100개 문서 가져오기
+            return results
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
-
-    async def load_conversation_history(self, prompt_session_id: str) -> list:
+    
+    async def save_chat(self, prompt_session_id: str, role: str, content: str) -> None:
         try:
-            # Redis에서 conversation history 조회
-            conversation_history = await self.redis_client.get_key(prompt_session_id)
-            if conversation_history:
-                return json.loads(conversation_history)
-            
-            # Redis에 없을 경우 MongoDB에서 조회
-            object_id = ObjectId(prompt_session_id)
-            prompt_message = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == object_id)
-            if prompt_message:
-                # 각 Message 객체를 JSON 형식으로 변환
-                formatted_history = [
-                    {
-                        "timestamp": msg.timestamp.isoformat() if isinstance(msg.timestamp, datetime) else msg["timestamp"],
-                        "role": msg.role,
-                        "content": msg.content
-                    } if isinstance(msg, Message) else msg
-                    for msg in prompt_message.messages
-                ]
-                return formatted_history
-            else:
-                return []
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+            prompt_session_id = ObjectId(prompt_session_id)
+            prompt_chat = PromptChat(
+                prompt_session_id=prompt_session_id,
+                role=role,
+                content=content,
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
 
-    async def save_conversation_history(self, prompt_session_id: str, conversation_history: list) -> None:
-        try:            
-            # Redis에 저장
-            await self.redis_client.set_key(prompt_session_id, json.dumps(conversation_history, ensure_ascii=False))
-            
-            # MongoDB에 저장
-            messages = [msg if isinstance(msg, Message) else Message(**msg) for msg in conversation_history]
-            
-            object_id = ObjectId(prompt_session_id)
-            prompt_message = await self.mongodb_engine.find_one(PromptMessage, PromptMessage.prompt_session_id == object_id)
-            if prompt_message:
-                prompt_message.messages = messages  # 기존 MongoDB 문서 업데이트
-            else:
-                prompt_message = PromptMessage(prompt_session_id=prompt_session_id, messages=messages)  # 새로운 대화 세션 생성 및 저장
-            
-            await self.mongodb_engine.save(prompt_message)
+            # redis에 저장
+            await self.redis_client.set_key(str(prompt_session_id), prompt_chat.json())
 
-            # PromptSession 업데이트
-            prompt_session = await self.mongodb_engine.find_one(PromptSession, PromptSession.id == object_id)
+            # mongoDB에 저장
+            await self.mongodb_engine.save(prompt_chat)
+
+            # PromptSession 마지막 업데이트 시간 업데이트
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == prompt_session_id
+            )
             prompt_session.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
-            
             await self.mongodb_engine.save(prompt_session)
-
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_recommend_data(self, prompt_session_id: str) -> tuple[list, list]:
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            if prompt_session:
+                return prompt_session.recommend_history, prompt_session.recommend_questions
+            else:
+                return [], []
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def update_recommend_data(self, prompt_session_id: str, recomm_history: list, recomm_questions: list):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            prompt_session.recommend_history = recomm_history
+            prompt_session.recommend_questions = recomm_questions
+            await self.mongodb_engine.save(prompt_session)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while updating recommend data: {str(e)}")
