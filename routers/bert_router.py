@@ -1,13 +1,16 @@
 import os
 import json
 import asyncio
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from services.bert_service import BERTService
 from schemas.bert_schema import PredictionSchema
+from schemas.prompt_schema import CreatePromptResponseSchema
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from core.redis_driver import RedisDriver
+
 
 # 환경 변수 로드
 load_dotenv()
@@ -90,3 +93,20 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
             await asyncio.sleep(5)
     
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/test")
+async def test(bert_service: BERTService = Depends(BERTService)):
+    attack_info = {}
+    attack_info['attack_time'] = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
+    attack_info['attack_type'] = ["T1087 - Account Discovery", "TA0007 - Discovery"]
+
+    file_path = "./temp_files/logs.txt"
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            attack_info['logs'] = file.read()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
+
+    prompt_session_id = await bert_service.process_after_detection("1", attack_info)
+    return CreatePromptResponseSchema(prompt_session_id=prompt_session_id)

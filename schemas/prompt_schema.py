@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from odmantic import ObjectId
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 
 
 class PromptChatRequestSchema(BaseModel):
@@ -63,21 +63,32 @@ class GetPromptContentsSchema(BaseModel):
 class GetPromptContentsResponseSchema(BaseModel):
     chats: List[GetPromptContentsSchema]
     report: Optional[str]
+    least_privilege_policy: Optional[Dict[str, Dict[str, List[Any]]]]
     init_recommend_questions: Optional[List[str]]
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "chats": [
-                    {"role": "user", "content": "자산 보여줘"},
-                    {"role": "assistant", "content": "자산 정보입니다"},
-                    {"role": "user", "content": "감사합니다"}
+                    {"role": "user", "content": "최근에 변경된 자산 정보를 보여주세요."},
+                    {"role": "assistant", "content": "여기 최근 자산 변경 내역입니다."},
+                    {"role": "user", "content": "감사합니다, 추가 권한 정책도 볼 수 있을까요?"}
                 ],
-                "report": "Example report data",
+                "report": "최근 계정 활동 분석에 대한 보고서 데이터입니다.",
+                "least_privilege_policy": {
+                    "Jiyun_Kim": {
+                        "PolicyA": ["s3:ListBuckets", "s3:GetObject"],
+                        "PolicyB": ["ec2:StartInstances"]
+                    },
+                    "Hyunjun_Park": {
+                        "PolicyA": ["s3:ListBuckets"],
+                        "PolicyC": ["ec2:DescribeInstances", "sqs:ReceiveMessage"]
+                    }
+                },
                 "init_recommend_questions": [
-                    "지난 일주일 동안 접속한 모든 IAM 계정의 목록을 제공해주세요.",
-                    "각 IAM 계정이 로그인한 정확한 시간과 날짜를 포함하여 보여주세요.",
-                    "해당 기간 동안 가장 많이 접속한 IAM 계정을 확인할 수 있는 방법을 설명해주세요."
+                    "최근 30일간 EC2 인스턴스 상태 변경 내역을 보여주세요.",
+                    "S3 버킷에 접근한 IAM 사용자의 목록을 시간별로 제공해주세요.",
+                    "IAM 계정 중 최근 비밀번호 변경 내역이 있는 계정을 확인해주세요."
                 ]
             }
         }
