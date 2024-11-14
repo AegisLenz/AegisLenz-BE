@@ -80,14 +80,21 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                             if prediction != 'No Attack':
                                 attack_info = {}
                                 attack_info['attack_time'] = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
-                                attack_info['attack_type'] = ["TA0007 - Discovery", prediction]
-                                attack_info["logs"] = buffer
+                                attack_info['attack_type'] = ["TA0007 - Discovery", str(prediction)]
+                                
+                                file_path = "./temp_files/logs.txt"
+                                try:
+                                    with open(file_path, "r", encoding="utf-8") as file:
+                                        attack_info['logs'] = file.read()
+                                except FileNotFoundError:
+                                    raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
+                                
                                 prompt_session_id = await bert_service.process_after_detection("1", attack_info)
                                 response = PredictionSchema(
                                     is_attack=True,
-                                    technique=prediction,
+                                    technique=str(prediction),
                                     tactic="TA0007 - Discovery",
-                                    prompt_session_id=prompt_session_id
+                                    prompt_session_id=str(prompt_session_id)
                                 )
                                 yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
 
