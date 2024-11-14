@@ -39,9 +39,11 @@ class PromptService:
 
         report = None
         recommend_questions = None
-
+        least_privilege_policy = None
+        
         # 공격에 대한 프롬프트 대화창인 경우 report와 recommend_questions도 같이 반환
         is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
+        
         if is_attack_prompt:
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
             if prompt_session:
