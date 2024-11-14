@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from services.bert_service import BERTService
 from schemas.bert_schema import PredictionSchema
+from schemas.prompt_schema import CreatePromptResponseSchema
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from core.redis_driver import RedisDriver
+
 
 # 환경 변수 로드
 load_dotenv()
@@ -105,6 +107,6 @@ async def test(bert_service: BERTService = Depends(BERTService)):
             attack_info['logs'] = file.read()
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
-    
+
     prompt_session_id = await bert_service.process_after_detection("1", attack_info)
-    return {"prompt_session_id": prompt_session_id}
+    return CreatePromptResponseSchema(prompt_session_id=prompt_session_id)

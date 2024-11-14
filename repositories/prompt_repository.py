@@ -123,11 +123,6 @@ class PromptRepository:
                 content=content,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
-
-            # redis에 저장
-            await self.redis_client.set_key(str(prompt_session_id), prompt_chat.json())
-
-            # mongoDB에 저장
             await self.mongodb_engine.save(prompt_chat)
 
             # PromptSession 마지막 업데이트 시간 업데이트
