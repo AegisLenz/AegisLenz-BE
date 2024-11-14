@@ -11,7 +11,6 @@ from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from core.redis_driver import RedisDriver
 
-
 # 환경 변수 로드
 load_dotenv()
 
@@ -79,7 +78,17 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                             print(f"{source_ip}에 대한 예측 결과: {prediction}")
 
                             if prediction != 'No Attack':
-                                response = PredictionSchema(is_attack=True, prediction=prediction)
+                                attack_info = {}
+                                attack_info['attack_time'] = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
+                                attack_info['attack_type'] = ["TA0007 - Discovery", prediction]
+                                attack_info["logs"] = buffer
+                                prompt_session_id = await bert_service.process_after_detection("1", attack_info)
+                                response = PredictionSchema(
+                                    is_attack=True,
+                                    technique=prediction,
+                                    tactic="TA0007 - Discovery",
+                                    prompt_session_id=prompt_session_id
+                                )
                                 yield f"data: {json.dumps(response.dict(), ensure_ascii=False)}\n\n"
 
                             await redis_driver.log_prediction(source_ip, response.dict())
