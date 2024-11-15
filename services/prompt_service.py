@@ -3,6 +3,7 @@ from bson import json_util
 from fastapi import HTTPException, Depends
 from datetime import datetime
 from services.gpt_service import GPTService
+from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
@@ -14,11 +15,12 @@ logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(), gpt_service: GPTService = Depends()):
+                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(), asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
         self.user_repository = user_repository
+        self.asset_service = asset_service
         self.gpt_service = gpt_service
         self.init_prompts = self.gpt_service._load_prompts()
     
@@ -124,6 +126,7 @@ class PromptService:
                 yield self._create_stream_response(type="ESQuery", data=es_query)
                 yield self._create_stream_response(type="ESResult", data=es_result)
             elif persona_type == "DB":
+                await self.asset_service.update_asset("1")
                 db_query, db_result = await self._db_persona(query)
                 persona_response = json.dumps({"db_query": db_query}, default=json_util.default, ensure_ascii=False)
                 yield self._create_stream_response(type="DBQuery", data=db_query)
