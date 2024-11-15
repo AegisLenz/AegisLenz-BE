@@ -120,18 +120,12 @@ class PromptService:
         if persona_type in ["ES", "DB"]:
             if persona_type == "ES":
                 es_query, es_result = await self._es_persona(query)
-                persona_response = json.dumps({
-                                                "es_query": es_query,
-                                                "es_result": es_result
-                                            }, ensure_ascii=False)
+                persona_response = json.dumps({"es_query": es_query}, ensure_ascii=False)
                 yield self._create_stream_response(type="ESQuery", data=es_query)
                 yield self._create_stream_response(type="ESResult", data=es_result)
             elif persona_type == "DB":
                 db_query, db_result = await self._db_persona(query)
-                persona_response = json.dumps({
-                                                "db_query": db_query,
-                                                "db_result": db_result
-                                            }, default=json_util.default, ensure_ascii=False)
+                persona_response = json.dumps({"db_query": db_query}, default=json_util.default, ensure_ascii=False)
                 yield self._create_stream_response(type="DBQuery", data=db_query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(db_result, default=json_util.default, ensure_ascii=False))
             
@@ -149,6 +143,7 @@ class PromptService:
         elif persona_type == "Policy":
             user_id = "1"  # 임시 유저 아이디.
             original_policy = await self.user_repository.get_user_policies(user_id)
+            least_privilege_policy = None
             
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
             if prompt_session:
