@@ -9,7 +9,7 @@ from schemas.bert_schema import PredictionSchema
 from schemas.prompt_schema import CreatePromptResponseSchema
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
-from core.redis_driver import RedisDriver
+from database.redis_driver import RedisDriver
 
 # 환경 변수 로드
 load_dotenv()

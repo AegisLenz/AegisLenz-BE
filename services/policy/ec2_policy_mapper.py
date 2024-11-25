@@ -1,4 +1,4 @@
-from utils.policy.common_utils import generate_least_privilege_policy
+from services.policy.common_utils import generate_least_privilege_policy
 
 def ec2_map_resource(policy_data, log):
     """EC2 리소스를 로그에서 매핑."""

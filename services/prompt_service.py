@@ -2,6 +2,7 @@ import json
 from bson import json_util
 from fastapi import HTTPException, Depends
 from datetime import datetime
+from typing import Dict, Any
 from services.gpt_service import GPTService
 from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
@@ -9,9 +10,10 @@ from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
 from repositories.user_repository import UserRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
-from utils.policy.filter_original_policy import filter_original_policy
-from core.logging_config import setup_logger
+from services.policy.filter_original_policy import filter_original_policy
+from common.logging import setup_logger
 logger = setup_logger()
+
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
@@ -22,15 +24,20 @@ class PromptService:
         self.user_repository = user_repository
         self.asset_service = asset_service
         self.gpt_service = gpt_service
-        self.init_prompts = self.gpt_service._load_prompts()
+        try:
+            self.init_prompts = self.gpt_service._load_prompts()
+            logger.debug("Successfully loaded initial prompts.")
+        except Exception as e:
+            logger.error(f"Failed to load initial prompts: {e}")
+            raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
     
-    async def create_prompt(self):
+    async def create_prompt(self) -> str:
         return await self.prompt_repository.create_prompt()
 
-    async def get_all_prompt(self):
+    async def get_all_prompt(self) -> list:
         return await self.prompt_repository.get_all_prompt()
 
-    async def get_prompt_chats(self, prompt_session_id: str):
+    async def get_prompt_chats(self, prompt_session_id: str) -> GetPromptContentsResponseSchema:
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
 
         prompt_chats = await self.prompt_repository.get_prompt_chats(prompt_session_id)
@@ -61,7 +68,7 @@ class PromptService:
             init_recommend_questions=recommend_questions
         )
 
-    async def _classify_persona(self, query):
+    async def _classify_persona(self, query) -> str:
         classify_prompt = self.init_prompts["Classify"]
         classify_prompt.append(query)
         response = await self.gpt_service.get_response(classify_prompt)
@@ -69,7 +76,7 @@ class PromptService:
         persona_type = responss_data.get("topics")
         return persona_type
 
-    async def _es_persona(self, query):
+    async def _es_persona(self, query) -> Dict[str, Any]:
         es_prompt = self.init_prompts["ES"]
         es_prompt.append(query)
         es_query = await self.gpt_service.get_response(es_prompt)
@@ -79,7 +86,7 @@ class PromptService:
         else:
             raise HTTPException(status_code=400, detail="Failed ElasticSearch query parsing.")
 
-    async def _db_persona(self, query):
+    async def _db_persona(self, query) -> Dict[str, Any]:
         db_prompt = self.init_prompts["DB"]
         db_prompt.append(query)
         db_query = await self.gpt_service.get_response(db_prompt)
@@ -89,7 +96,7 @@ class PromptService:
         else:
             raise HTTPException(status_code=400, detail="Failed MongoDB query parsing.")
 
-    async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions):
+    async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions) -> list:
         response = await self.gpt_service.get_response(recomm_history, json_format=False, recomm=True)
         new_questions = response.splitlines()
         unique_questions = [
@@ -98,25 +105,40 @@ class PromptService:
         ]
         return unique_questions[:3]
 
-    def _create_stream_response(self, status="processing", type=None, data=None):
-        if data is not None:
-            if isinstance(data, dict):
-                data = json.dumps(data, ensure_ascii=False).replace('\"', '')
-            elif isinstance(data, str):
-                data = data.replace('\"', '')
-            elif isinstance(data, list):
-                pass
+    def _create_stream_response(self, status="processing", type=None, data=None) -> str:
+        try:
+            if data is not None:
+                if isinstance(data, dict):
+                    data = json.dumps(data, ensure_ascii=False).replace('\"', '')
+                elif isinstance(data, str):
+                    data = data.replace('\"', '')
+                elif isinstance(data, list):
+                    pass
 
-        response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
-        return json.dumps(response.dict(), ensure_ascii=False) + "\n"
+            response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
+            return json.dumps(response.dict(), ensure_ascii=False) + "\n"
+        except Exception as e:
+            logger.error(f"Error creating stream response: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create stream response.")
 
     async def process_prompt(self, user_question: str, prompt_session_id: str, is_attack=False):
-        user_content = f"현재 날짜와 시간은 {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}입니다. 이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {user_question} 답변은 반드시 json 형식으로 나옵니다."
+        user_content = (
+            "현재 날짜와 시간은 {time}입니다. "
+            "이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {question} "
+            "답변은 반드시 json 형식으로 나옵니다."
+        ).format(
+            time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            question=user_question
+        )
         query = {"role": "user", "content": user_content}
 
         # 분류기 페르소나 결과
-        persona_type = await self._classify_persona(query)
-        logger.info(persona_type)
+        try:
+            persona_type = await self._classify_persona(query)
+            logger.debug(f"Persona type classified: {persona_type}")
+        except Exception as e:
+            logger.error(f"Error during persona classification: {e}")
+            raise HTTPException(status_code=500, detail="Persona classification failed.")
 
         # 분류기 결과에 따른 페르소나 로직 수행
         if persona_type in ["ES", "DB"]:
@@ -210,8 +232,6 @@ class PromptService:
             else:
                 async for chunk in self.process_prompt(user_question, prompt_session_id, is_attack=False):
                     yield chunk
-
-        except HTTPException as e:
-            yield json.dumps({"error": e.detail, "status_code": e.status_code})
         except Exception as e:
-            yield json.dumps({"error": str(e), "status_code": 500})
+            logger.error(f"Unexpected error during persona classification: {e}")
+            raise HTTPException(status_code=500, detail="An unexpected error occurred during persona classification.")

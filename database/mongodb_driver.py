@@ -1,6 +1,6 @@
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
-import os
 from dotenv import load_dotenv
 
 load_dotenv()

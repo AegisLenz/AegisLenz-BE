@@ -1,8 +1,11 @@
 import os
-from utils.policy.common_utils import load_json, merge_policies, map_etc
-from utils.policy.s3_policy_mapper import s3_policy_mapper
-from utils.policy.ec2_policy_mapper import ec2_policy_mapper
-from utils.policy.iam_policy_mapper import iam_policy_mapper
+from dotenv import load_dotenv
+from services.policy.common_utils import load_json, merge_policies, map_etc
+from services.policy.s3_policy_mapper import s3_policy_mapper
+from services.policy.ec2_policy_mapper import ec2_policy_mapper
+from services.policy.iam_policy_mapper import iam_policy_mapper
+
+load_dotenv()
 
 
 def clustering_by_username(logs):
@@ -20,10 +23,13 @@ def making_policy(log_entry):
     """CloudTrail 로그의 이벤트 소스와 이벤트 이름에 따른 정책 생성."""
     event_source = log_entry.get("eventSource")
     event_name = log_entry.get("eventName")
+    
+    iam_policy_dir = os.getenv("IAM_POLICY_DIR_PATH")
+    base_directory = os.path.join(iam_policy_dir, "AWSDatabase")
 
     # S3 관련 정책 매핑
     if event_source == 's3.amazonaws.com':
-        specific_policy_path = os.path.join("./iam-policy/AWSDatabase/S3", f'{event_name.casefold()}.json')
+        specific_policy_path = os.path.join(base_directory, f'S3/{event_name.casefold()}.json')
         if os.path.exists(specific_policy_path):
             policy_data = load_json(specific_policy_path)
             policy = s3_policy_mapper(log_entry, policy_data)
@@ -32,7 +38,7 @@ def making_policy(log_entry):
 
     # EC2 관련 정책 매핑
     elif event_source == 'ec2.amazonaws.com':
-        specific_policy_path = os.path.join("./iam-policy/AWSDatabase/EC2", f'{event_name.casefold()}.json')
+        specific_policy_path = os.path.join(base_directory, f'EC2/{event_name.casefold()}.json')
         if os.path.exists(specific_policy_path):
             policy_data = load_json(specific_policy_path)
             policy = ec2_policy_mapper(log_entry, policy_data)
@@ -52,7 +58,8 @@ def making_policy(log_entry):
 
 def extract_policy_by_cloudTrail():
     # ES에서 가져와야 하는 로그. 일단 sample data로 대체
-    file_path = "./iam-policy/src/sample_data/event_history.json"
+    iam_policy_dir = os.getenv("IAM_POLICY_DIR_PATH")
+    file_path = os.path.join(iam_policy_dir, "src/sample_data/event_history.json")
 
     logs = load_json(file_path).get("Records", [])
     if not isinstance(logs, list):

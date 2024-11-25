@@ -1,5 +1,6 @@
 from fastapi import HTTPException
-from core.mongodb_driver import mongodb
+from database.mongodb_driver import mongodb
+
 
 class AssetRepository:
     def __init__(self):

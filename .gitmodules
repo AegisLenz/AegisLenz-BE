@@ -1,8 +1,8 @@
-[submodule "iam-policy"]
-	path = iam-policy
-	url = https://github.com/AegisLenz/iam-policy.git
-	branch = dev
-[submodule "AegisLenz-PE"]
-	path = AegisLenz-PE
+[submodule "submodules/prompt-engineering"]
+	path = submodules/prompt-engineering
 	url = https://github.com/AegisLenz/AegisLenz-PE.git
+	branch = dev
+[submodule "submodules/iam-policy"]
+	path = submodules/iam-policy
+	url = https://github.com/AegisLenz/iam-policy.git
 	branch = dev

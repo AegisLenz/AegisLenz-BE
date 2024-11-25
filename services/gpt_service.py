@@ -2,7 +2,7 @@ import os
 import openai
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from core.logging_config import setup_logger
+from common.logging import setup_logger
 
 logger = setup_logger()
 
@@ -17,7 +17,7 @@ class GPTService:
         self.gpt_client = openai.OpenAI(api_key=api_key)
 
     def _load_prompts(self, prompt_files=None):
-        prompt_dir = './AegisLenz-PE/NowPrompt/Engineering/'
+        prompt_dir = os.getenv("PROMPT_ENGINEERING_DIR_PATH")
         prompt_files = prompt_files or {
             "Classify": "ClassifyPr.txt",
             "ES": "onlyES.txt",
