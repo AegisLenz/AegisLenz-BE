@@ -3,6 +3,8 @@ import json
 import asyncio
 import redis.asyncio as redis
 from dotenv import load_dotenv
+from common.logging import setup_logger
+logger = setup_logger()
 
 load_dotenv()
 REDIS_HOST = os.getenv("REDIS_HOST")
@@ -25,7 +27,7 @@ class RedisDriver:
             if await self.redis_client.llen(key) > max_logs:
                 await self.redis_client.lpop(key)
         except Exception as e:
-            print(f"Error setting log queue for IP {source_ip}: {e}")
+            logger.error(f"Error setting log queue for IP {source_ip}: {e}")
             await asyncio.sleep(1)
 
     async def get_log_queue(self, source_ip):
@@ -37,7 +39,7 @@ class RedisDriver:
             logs = await self.redis_client.lrange(key, 0, -1)
             return [json.loads(log) for log in logs]
         except Exception as e:
-            print(f"Error getting log queue for IP {source_ip}: {e}")
+            logger.error(f"Error getting log queue for IP {source_ip}: {e}")
             return []
 
     async def log_prediction(self, source_ip, prediction_data):
@@ -47,6 +49,6 @@ class RedisDriver:
         try:
             key = f"prediction:{source_ip}"
             await self.redis_client.set(key, json.dumps(prediction_data), ex=3600)
-            print(f"Logged prediction for IP {source_ip}: {prediction_data}")
+            logger.info(f"Logged prediction for IP {source_ip}: {prediction_data}")
         except Exception as e:
-            print(f"Error logging prediction for IP {source_ip}: {e}")
+            logger.error(f"Error logging prediction for IP {source_ip}: {e}")
