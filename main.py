@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from common.logging import setup_logger
 from database.mongodb_driver import mongodb
-from utils.insert_initial_data import insert_initial_policy_data
 from routers import user_router, prompt_router, bert_router, policy_router
 
 logger = setup_logger()
@@ -22,7 +21,6 @@ def read_root():
 async def startup_db_client():
     await mongodb.connect()
     logger.info("MongoDB 연결이 설정되었습니다.")
-    await insert_initial_policy_data()
 
 # 서버 종료 시 MongoDB 연결 종료
 @app.on_event("shutdown")
