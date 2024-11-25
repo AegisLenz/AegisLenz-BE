@@ -1,10 +1,12 @@
 import os
 import json
+from dotenv import load_dotenv
 from core.mongodb_driver import mongodb
 from models.policy_model import Policy, PolicyAction
 
 
 async def insert_initial_policy_data():
+    load_dotenv()
     mongodb_engine = mongodb.get_engine()
 
     document_count = await mongodb_engine.count(Policy)
@@ -12,7 +14,8 @@ async def insert_initial_policy_data():
     if document_count == 0:
         print("컬렉션이 비어 있습니다. 초기 데이터를 삽입합니다.")
         
-        base_directory = "./iam-policy/AWSDatabase"  # submodule로 설정한 AWS 최소권한정책 DB
+        iam_policy_dir = os.getenv("IAM_POLICY_DIR_PATH")
+        base_directory = os.path.join(iam_policy_dir, "AWSDatabase")
         directories = [d for d in os.listdir(base_directory) if os.path.isdir(os.path.join(base_directory, d))]
 
         # 각 디렉터리의 하위 파일 목록 가져오기 및 데이터 삽입
