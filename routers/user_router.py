@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from services import user_service
-from core.mongodb_driver import mongodb
+from database.mongodb_driver import mongodb
 
 router = APIRouter(prefix="/users", tags=["users"])
 

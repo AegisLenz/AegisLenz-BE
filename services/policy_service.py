@@ -1,6 +1,6 @@
 from fastapi import Depends
-from utils.policy.extract_policy_by_cloudTrail import extract_policy_by_cloudTrail
-from utils.policy.comparePolicy import clustered_compare_policy
+from services.policy.extract_policy_by_cloudTrail import extract_policy_by_cloudTrail
+from services.policy.comparePolicy import clustered_compare_policy
 from repositories.user_repository import UserRepository
 
 

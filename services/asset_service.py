@@ -1,7 +1,7 @@
 from fastapi import Depends
-from utils.asset.get_iam import get_iam_users
-from utils.asset.get_s3 import get_s3_buckets
-from utils.asset.get_ec2 import get_ec2_instances
+from services.asset.get_iam import get_iam_users
+from services.asset.get_s3 import get_s3_buckets
+from services.asset.get_ec2 import get_ec2_instances
 from models.asset_model import UserAsset, Asset, IAMUser, EC2, S3_Bucket
 from repositories.asset_repository import AssetRepository
 

@@ -7,9 +7,9 @@ from fastapi import HTTPException
 from elasticsearch import AsyncElasticsearch
 from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptSession, PromptChat
-from core.redis_driver import RedisDriver
-from core.mongodb_driver import mongodb
-from utils.prompt.convert_dates_in_query import convert_dates_in_query
+from database.redis_driver import RedisDriver
+from database.mongodb_driver import mongodb
+from services.prompt.convert_dates_in_query import convert_dates_in_query
 
 
 class PromptRepository:

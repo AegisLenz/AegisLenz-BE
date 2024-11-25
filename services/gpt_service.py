@@ -2,7 +2,7 @@ import os
 import openai
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from core.logging_config import setup_logger
+from common.logging import setup_logger
 
 logger = setup_logger()
 

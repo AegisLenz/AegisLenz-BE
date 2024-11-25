@@ -1,16 +1,17 @@
-import redis.asyncio as redis
 import os
-from dotenv import load_dotenv
 import json
 import asyncio
+import redis.asyncio as redis
+from dotenv import load_dotenv
 
 load_dotenv()
-redis_host = os.getenv("REDIS_HOST")
-redis_port = os.getenv("REDIS_PORT")
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+
 
 class RedisDriver:
     def __init__(self):
-        self.redis_url = f'redis://{redis_host}:{redis_port}'
+        self.redis_url = f'redis://{REDIS_HOST}:{REDIS_PORT}'
         self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
 
     async def set_log_queue(self, source_ip, log_data, max_logs=5):

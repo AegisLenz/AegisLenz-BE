@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from models.user_model import User
-from core.mongodb_driver import mongodb
 from models.asset_model import UserAsset
+from database.mongodb_driver import mongodb
 
 
 class UserRepository:

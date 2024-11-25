@@ -1,7 +1,7 @@
 import os
 import json
 from dotenv import load_dotenv
-from core.mongodb_driver import mongodb
+from database.mongodb_driver import mongodb
 from models.policy_model import Policy, PolicyAction
 
 

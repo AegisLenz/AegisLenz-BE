@@ -9,8 +9,8 @@ from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
 from repositories.user_repository import UserRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
-from utils.policy.filter_original_policy import filter_original_policy
-from core.logging_config import setup_logger
+from services.policy.filter_original_policy import filter_original_policy
+from common.logging import setup_logger
 logger = setup_logger()
 
 class PromptService:

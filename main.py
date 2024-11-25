@@ -1,7 +1,6 @@
 from fastapi import FastAPI
-from routers import user_router, prompt_router, bert_router
-from core.mongodb_driver import mongodb
-from core.logging_config import setup_logger
+from common.logging import setup_logger
+from database.mongodb_driver import mongodb
 from utils.insert_initial_data import insert_initial_policy_data
 from routers import user_router, prompt_router, bert_router, policy_router
 

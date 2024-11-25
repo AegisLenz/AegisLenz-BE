@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class PredictionSchema(BaseModel):
     is_attack: bool
     technique: str

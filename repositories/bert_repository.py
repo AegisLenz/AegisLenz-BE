@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from odmantic import ObjectId
 from typing import Dict, List, Any
 from datetime import datetime, timedelta, timezone
-from core.mongodb_driver import mongodb
+from database.mongodb_driver import mongodb
 from models.attack_detection_model import AttackDetection
 
 
