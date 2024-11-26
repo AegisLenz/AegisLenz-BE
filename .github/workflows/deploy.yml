@@ -18,6 +18,16 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      # Set up SSH
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
       # 서버에 SSH로 접속하여 환경설정 및 배포
       - name: SSH into Server and Deploy
         uses: appleboy/ssh-action@v0.1.5
