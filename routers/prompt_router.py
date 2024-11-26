@@ -26,9 +26,9 @@ async def get_prompt_chats(prompt_session_id: str, prompt_service: PromptService
 
 
 @router.post("/{prompt_session_id}/chat", response_model=PromptChatStreamResponseSchema)
-async def chat_sse(prompt_session_id: str, request: PromptChatRequestSchema = Body(...), prompt_service: PromptService = Depends()):
+async def chat_sse(prompt_session_id: str, user_id: str = "1", request: PromptChatRequestSchema = Body(...), prompt_service: PromptService = Depends()):
     user_question = request.user_input
     return StreamingResponse(
-        prompt_service.handle_chat(user_question, prompt_session_id),
+        prompt_service.handle_chat(user_question, prompt_session_id, user_id),
         media_type="text/event-stream"
     )

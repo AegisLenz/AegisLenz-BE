@@ -53,7 +53,7 @@ async def fetch_logs_from_elasticsearch():
         return []
 
 @router.get("/events", response_model=PredictionSchema)
-async def sse_events(bert_service: BERTService = Depends(BERTService)):
+async def sse_events(user_id: str = "1", bert_service: BERTService = Depends(BERTService)):
     async def event_generator():
         while True:
             try:
@@ -89,7 +89,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                 except FileNotFoundError:
                                     raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
                                 
-                                prompt_session_id = await bert_service.process_after_detection("1", attack_info)
+                                prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
                                 response = PredictionSchema(
                                     is_attack=True,
                                     technique=str(prediction),
@@ -112,7 +112,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
 
 
 @router.get("/test")
-async def test(bert_service: BERTService = Depends(BERTService)):
+async def test(user_id: str = "1", bert_service: BERTService = Depends(BERTService)):
     attack_info = {}
     attack_info['attack_time'] = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
     attack_info['attack_type'] = ["T1087 - Account Discovery", "TA0007 - Discovery"]
@@ -124,5 +124,5 @@ async def test(bert_service: BERTService = Depends(BERTService)):
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail=f"File not found: {file_path}")
 
-    prompt_session_id = await bert_service.process_after_detection("1", attack_info)
+    prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
     return CreatePromptResponseSchema(prompt_session_id=prompt_session_id)
