@@ -22,19 +22,24 @@ class AssetService:
         except Exception as e:
             logger.error(f"Error collecting assets: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to collect AWS assets: {str(e)}")
-
+        
         # Asset 객체 생성
         asset = Asset(IAM=iam_users, EC2=ec2_instances, S3=s3_buckets)
 
-        # UserAsset 객체 생성 및 저장
-        user_assets = UserAsset(
-            user_id=user_id,
-            asset=asset
-        )
-
         try:
-            await self.asset_repository.save_asset(user_assets)
-            logger.debug("UserAsset saved successfully.")
+            # 기존 UserAsset 확인
+            existing_user_asset = await self.asset_repository.find_asset_by_user_id(user_id)
+            
+            if existing_user_asset:  # 기존 데이터가 있으면 업데이트
+                await self.asset_repository.update_asset(user_id, asset)
+                logger.debug("UserAsset updated successfully.")
+            else:  # 기존 데이터가 없으면 새로 저장
+                user_assets = UserAsset(
+                    user_id=user_id,
+                    asset=asset
+                )
+                await self.asset_repository.save_asset(user_assets)
+                logger.debug("UserAsset created successfully.")
         except Exception as e:
-            logger.error(f"Error saving UserAsset: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to save UserAsset to the database: {str(e)}")
+            logger.error(f"Error updating UserAsset: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to update UserAsset to the database: {str(e)}")
