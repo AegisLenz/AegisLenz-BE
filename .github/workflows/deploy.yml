@@ -28,6 +28,13 @@ jobs:
           password: ${{ secrets.SSH_PASSWD }}
           script_stop: true
           script: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/aegislenz
+            chmod 600 ~/.ssh/aegislenz
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/aegislenz
+
             cd AegisLenz/AegisLenz-BE
             git pull origin dev
 
