@@ -28,6 +28,9 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/aegislenz
 
+      - name: Test SSH Connection
+        run: ssh -i ~/.ssh/aegislenz -T git@github.com
+
       # 서버에 SSH로 접속하여 환경설정 및 배포
       - name: SSH into Server and Deploy
         uses: appleboy/ssh-action@v0.1.5
