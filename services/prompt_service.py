@@ -17,7 +17,8 @@ logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(), asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
+                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(),
+                 asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
@@ -84,7 +85,7 @@ class PromptService:
             es_result = await self.prompt_repository.find_es_document(es_query)
             return es_query, es_result
         else:
-            raise HTTPException(status_code=400, detail="Failed ElasticSearch query parsing.")
+            raise HTTPException(status_code=500, detail="Unable to generate a valid Elasticsearch query.")
 
     async def _db_persona(self, query) -> Dict[str, Any]:
         db_prompt = self.init_prompts["DB"]
@@ -94,7 +95,7 @@ class PromptService:
             db_result = await self.prompt_repository.find_db_document(db_query)
             return db_query, db_result
         else:
-            raise HTTPException(status_code=400, detail="Failed MongoDB query parsing.")
+            raise HTTPException(status_code=500, detail="Unable to generate a valid MongoDB query.")
 
     async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions) -> list:
         response = await self.gpt_service.get_response(recomm_history, json_format=False, recomm=True)
@@ -121,7 +122,7 @@ class PromptService:
             logger.error(f"Error creating stream response: {e}")
             raise HTTPException(status_code=500, detail="Failed to create stream response.")
 
-    async def process_prompt(self, user_question: str, prompt_session_id: str, is_attack=False):
+    async def process_prompt(self, user_question: str, prompt_session_id: str, user_id: str, is_attack=False):
         user_content = (
             "현재 날짜와 시간은 {time}입니다. "
             "이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {question} "
@@ -135,7 +136,7 @@ class PromptService:
         # 분류기 페르소나 결과
         try:
             persona_type = await self._classify_persona(query)
-            logger.debug(f"Persona type classified: {persona_type}")
+            logger.info(f"Persona type classified: {persona_type}")
         except Exception as e:
             logger.error(f"Error during persona classification: {e}")
             raise HTTPException(status_code=500, detail="Persona classification failed.")
@@ -144,54 +145,73 @@ class PromptService:
         if persona_type in ["ES", "DB"]:
             if persona_type == "ES":
                 es_query, es_result = await self._es_persona(query)
-                persona_response = json.dumps({"es_query": es_query}, ensure_ascii=False)
                 yield self._create_stream_response(type="ESQuery", data=es_query)
                 yield self._create_stream_response(type="ESResult", data=es_result)
+                persona_response = json.dumps({"es_query": es_query}, ensure_ascii=False)
             elif persona_type == "DB":
-                await self.asset_service.update_asset("1")
+                await self.asset_service.update_asset(user_id)  # 자산 업데이트
                 db_query, db_result = await self._db_persona(query)
-                persona_response = json.dumps({"db_query": db_query}, default=json_util.default, ensure_ascii=False)
                 yield self._create_stream_response(type="DBQuery", data=db_query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(db_result, default=json_util.default, ensure_ascii=False))
+                persona_response = json.dumps({"db_query": db_query, "db_result": db_result}, default=json_util.default, ensure_ascii=False)
             
-            # 요약 페르소나
             summary_prompt = self.init_prompts["Summary"]
             summary_prompt.append({
                 "role": "user",
                 "content": f"{user_content}\n{persona_type} 응답: {persona_response}"
             })
             
+            # 응답 페르소나
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response(summary_prompt):
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Policy":
-            user_id = "1"  # 임시 유저 아이디.
-            original_policy = await self.user_repository.get_user_policies(user_id)
+            # 최소권한정책 가져오기
             least_privilege_policy = None
-            
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
             if prompt_session:
                 attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
                 if attack_detection and attack_detection.least_privilege_policy:
-                    least_privilege_policy = attack_detection.least_privilege_policy["least_privilege_policy"]
+                    least_privilege_policy = attack_detection.least_privilege_policy.get("least_privilege_policy")
+                    if not least_privilege_policy:
+                        raise HTTPException(
+                            status_code=404, 
+                            detail=f"Least privilege policy not found in attack detection with ID: {prompt_session.attack_detection_id}"
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=404, 
+                        detail=f"Attack detection data missing or incomplete for ID: {prompt_session.attack_detection_id}"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Prompt session with ID: {prompt_session_id} does not exist or could not be retrieved."
+                )
 
+            # 사용자 정책 가져오기
+            original_policy = await self.user_repository.get_user_policies(user_id)
             filtered_original_policy = filter_original_policy(original_policy, least_privilege_policy)
 
             policy_content = self.init_prompts["Policy"][0]["content"].format(
                 original_policy=json.dumps(filtered_original_policy, indent=2),
                 least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
             )
-            policy_prompt = [{"role": "system", "content": policy_content}]
-            policy_prompt.append({"role": "user", "content": user_question})
+            summary_prompt = [{"role": "system", "content": policy_content}]
+            summary_prompt.append({"role": "user", "content": user_question})
 
+            # 응답 페르소나
             assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(policy_prompt):
+            async for chunk in self.gpt_service.stream_response(summary_prompt):
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Normal":
+            summary_prompt = [{"role": "user", "content": user_question}]
+
+            # 응답 페르소나
             assistant_response = ""
-            async for chunk in self.gpt_service.stream_response([{"role": "user", "content": user_question}]):
+            async for chunk in self.gpt_service.stream_response(summary_prompt):
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         else:
@@ -219,7 +239,7 @@ class PromptService:
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
         await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response)
 
-    async def handle_chat(self, user_question: str, prompt_session_id: str):
+    async def handle_chat(self, user_question: str, prompt_session_id: str, user_id: str):
         try:
             # PromptSession 아이디 유효성 확인
             await self.prompt_repository.validate_prompt_session(prompt_session_id)
@@ -227,11 +247,11 @@ class PromptService:
             # 프롬프트 처리 및 응답 스트리밍
             is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
             if is_attack_prompt:
-                async for chunk in self.process_prompt(user_question, prompt_session_id, is_attack=True):
+                async for chunk in self.process_prompt(user_question, prompt_session_id, user_id, is_attack=True):
                     yield chunk
             else:
-                async for chunk in self.process_prompt(user_question, prompt_session_id, is_attack=False):
+                async for chunk in self.process_prompt(user_question, prompt_session_id, user_id, is_attack=False):
                     yield chunk
         except Exception as e:
-            logger.error(f"Unexpected error during persona classification: {e}")
-            raise HTTPException(status_code=500, detail="An unexpected error occurred during persona classification.")
+            logger.error(f"Unexpected error during handling the chat: {e}")
+            raise HTTPException(status_code=500, detail="An unexpected error occurred while handling the chat.")

@@ -9,7 +9,10 @@ from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptSession, PromptChat
 from database.redis_driver import RedisDriver
 from database.mongodb_driver import mongodb
-from services.prompt.convert_dates_in_query import convert_dates_in_query
+from services.prompt.query_parser import convert_dates_in_query, extract_values
+from common.logging import setup_logger
+
+logger = setup_logger()
 
 
 class PromptRepository:
@@ -107,9 +110,19 @@ class PromptRepository:
 
     async def find_db_document(self, db_query) -> list:
         try:
-            db_query = json.loads(db_query)
-            db_query = convert_dates_in_query(db_query)
-            results = await self.mongodb_client.user_assets.find(db_query).to_list(length=100)  # 최대 100개 문서 가져오기
+            logger.debug("Received DB query: %s", db_query)
+            parsed_query = json.loads(db_query)
+
+            processed_query = convert_dates_in_query(parsed_query)
+            logger.info("Processed query after date conversion: %s", processed_query)
+
+            query_results = await self.mongodb_client.command(processed_query)
+            logger.info("Raw query results: %s", query_results)
+
+            first_batch = query_results.get("cursor", {}).get("firstBatch", [])
+            results = extract_values(first_batch)
+            logger.info("Final extracted results: %s", results)
+
             return results
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
