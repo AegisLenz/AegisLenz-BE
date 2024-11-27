@@ -18,15 +18,25 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # Set up SSH
-      - name: Set up SSH
+      - uses: actions/checkout@v3
+      - name: Setup SSH-keys and known_hosts
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/aegislenz
-          chmod 600 ~/.ssh/aegislenz
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/aegislenz
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}
+
+      # # Set up SSH
+      # - name: Set up SSH
+      #   run: |
+      #     mkdir -p ~/.ssh
+      #     echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/aegislenz
+      #     chmod 600 ~/.ssh/aegislenz
+      #     ssh-keyscan github.com >> ~/.ssh/known_hosts
+      #     eval "$(ssh-agent -s)"
+      #     ssh-add ~/.ssh/aegislenz
 
       - name: Test SSH Connection
         run: ssh -i ~/.ssh/aegislenz -T git@github.com || true
