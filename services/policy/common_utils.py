@@ -17,18 +17,21 @@ def generate_least_privilege_policy(actions, resources, effect="Allow"):
     """최소 권한 정책 생성."""
     return [
         {
-            "Action": actions,
-            "Resource": resources,
+            "Sid": f"policy-{actions[0]}",
             "Effect": effect,
-            "Sid": f"policy-{actions[0]}"
+            "Action": actions,
+            "Resource": resources
         }
     ]
 
 def merge_policies(policies):
     """여러 정책을 병합."""
     merged_policy = {
-        "Version": "2012-10-17",
-        "Statement": []
+        "PolicyName": "Aegislenz-Least-Privilege-Policy",
+        "PolicyDocument" :{
+            "Version": "2012-10-17",
+            "Statement": []
+        }
     }
     action_resource_map = {}
 
@@ -46,11 +49,11 @@ def merge_policies(policies):
                     action_resource_map[action].update(resources)
 
     for action, resources in action_resource_map.items():
-        merged_policy["Statement"].append({
+        merged_policy["PolicyDocument"]["Statement"].append({
             "Sid": f"policy-{action}",
+            "Effect": "Allow",
             "Action": action,
             "Resource": list(resources),
-            "Effect": "Allow",
         })
     
     return merged_policy
@@ -64,9 +67,9 @@ def map_etc(event_source, event_name):
         "Statement": [
             {
                 "Sid": f"policy-{action}",
+                "Effect": "Allow",
                 "Action": action,
                 "Resource": "*",
-                "Effect": "Allow",
             }
         ]
     }
