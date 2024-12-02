@@ -32,10 +32,13 @@ class AssetRepository:
 
     async def find_asset_by_user_id(self, user_id) -> UserAsset:
         try:
-            asset = await self.mongodb_engine.find_one(
+            user_assets = await self.mongodb_engine.find_one(
                 UserAsset,
                 UserAsset.user_id == user_id
             )
-            return asset
+            if not user_assets:
+                raise HTTPException(status_code=404, detail="UserAsset not found")
+            else:
+                return user_assets
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch assets: {str(e)}")
