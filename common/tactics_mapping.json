@@ -1,0 +1,20 @@
+{
+    "T1136-Create Account": "TA0003-Persistence",
+    "T1098-Account Manipulation": "TA0003-Persistence",
+    "T1484-Domain Policy Modification": "TA0004-Privilege Escalation",
+    "T1556-Modify Authentication Process": "TA0004-Privilege Escalation",
+    "T1070–Indicator Removal on Host": "TA0005-Defense Evasion",
+    "T1552-Unsecured Credentials": "TA0005-Defense Evasion",
+    "T1555-Credentials from Password Stores": "TA0006-Credential Access",
+    "T1111-Multi-Factor Authentication Interception": "TA0006-Credential Access",
+    "T1087 - Account Discovery": "TA0007-Discovery",
+    "T1016-System Network Configuration Discovery": "TA0007-Discovery",
+    "T1069-Permission Groups Discovery": "TA0007-Discovery",
+    "T1059-Command and Scripting Interpreter": "TA0008-Execution",
+    "T1530-Data from Cloud Storage": "TA0009-Collection",
+    "T1560-Archive Collected Data": "TA0009-Collection",
+    "T1020 - Automated Exfiltration": "TA0010 - Exfiltration",
+    "T1048 - Exfiltration Over Alternative Protocol": "TA0010 - Exfiltration",
+    "T1537 - Transfer Data to Cloud Account": "TA0010 - Exfiltration",
+    "T1489 - Service Stop": "TA0040 - Impact"
+}
