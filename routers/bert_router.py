@@ -75,6 +75,12 @@ def initialize_elasticsearch_mapping():
 # Elasticsearch 매핑 초기화
 initialize_elasticsearch_mapping()
 
+def normalize_key(key: str) -> str:
+    """
+    Key를 정규화하여 매핑의 일관성을 유지
+    """
+    return key.strip().lower().replace(" ", "").replace("-", "")
+
 async def fetch_logs_from_elasticsearch():
     """
     Elasticsearch에서 최근 5개의 로그를 가져오는 함수
@@ -123,13 +129,24 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                         buffer = await redis_driver.get_log_queue(source_ip)
                         if len(buffer) == 5:
                             prediction = await bert_service.predict_attack(buffer)
-                            logger.info(f"Prediction for {source_ip}: {prediction}")
+                            
+                            logger.info(f"Raw prediction value for {source_ip}: {prediction}")
+                            logger.info(f"Type of prediction: {type(prediction)}")
+
+                            normalized_prediction = normalize_key(str(prediction))
+                            logger.info(f"Normalized prediction: {normalized_prediction}")
+
+                            tactic = TACTICS_TECHNIQUES_MAPPING.get(normalized_prediction, "Unknown Tactic")
+                            logger.info(f"Mapped tactic: {tactic}")
+
+                            if tactic == "Unknown Tactic":
+                                logger.warning(f"Mapping failed for prediction: {prediction} (normalized: {normalized_prediction})")
 
                             if prediction != 'No Attack':
                                 attack_document = {
                                     **log,
-                                    "mitreAttackTactic": TACTICS_TECHNIQUES_MAPPING.get(prediction, "Unknown Tactic"),
-                                    "mitreAttackTechnique": prediction,
+                                    "mitreAttackTactic": tactic,
+                                    "mitreAttackTechnique": str(prediction),
                                     "attack_time": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
                                 }
 
@@ -139,7 +156,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
 
                                 yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
 
-                            await redis_driver.log_prediction(source_ip, {"prediction": prediction})
+                            await redis_driver.log_prediction(source_ip, {"prediction": str(prediction)})
                     except Exception as e:
                         logger.error(f"Error processing prediction for {source_ip}: {str(e)}")
                         continue
