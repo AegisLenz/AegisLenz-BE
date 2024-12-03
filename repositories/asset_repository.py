@@ -36,9 +36,6 @@ class AssetRepository:
                 UserAsset,
                 UserAsset.user_id == user_id
             )
-            if not user_assets:
-                raise HTTPException(status_code=404, detail="UserAsset not found")
-            else:
-                return user_assets
+            return user_assets
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch assets: {str(e)}")
