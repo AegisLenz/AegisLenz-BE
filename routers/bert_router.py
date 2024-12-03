@@ -32,13 +32,18 @@ router = APIRouter(prefix="/bert", tags=["bert"])
 
 # JSON 파일 경로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-COMMON_DIR = os.path.join(BASE_DIR, "common")
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
+
 TACTICS_MAPPING_FILE = os.path.join(COMMON_DIR, "tactics_mapping.json")
 ELASTICSEARCH_MAPPING_FILE = os.path.join(COMMON_DIR, "elasticsearch_mapping.json")
 
 # JSON 데이터 로드 함수
 def load_json(file_path):
     try:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"{file_path} 경로에 파일이 존재하지 않습니다.")
+        
         with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             logger.info(f"{file_path} 로드 성공")
