@@ -151,9 +151,9 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
 
                                 user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
                                 attack_info = {
-                                    "tactic": tactic,
-                                    "technique": str(prediction),
-                                    "time": datetime.now().isoformat()
+                                    "attack_time": attack_document["attack_time"],
+                                    "attack_type": [tactic],
+                                    "logs": json.dumps(attack_document)
                                 }
                                 try:
                                     prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
