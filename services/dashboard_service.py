@@ -1,6 +1,6 @@
 from fastapi import Depends
 from repositories.asset_repository import AssetRepository
-from schemas.dashboard_schema import AccountByServiceResponseSchema
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema
 
 
 class DashboardService:
@@ -23,10 +23,10 @@ class DashboardService:
         # Policy 개수 계산
         for iam in user_assets.asset.IAM:
             for policy in iam.UserPolicies:
-                unique_user_policies.add(policy["PolicyName"])
+                unique_user_policies.add(policy.PolicyName)
 
             for policy in iam.AttachedPolicies:
-                unique_attached_policies.add(policy["PolicyName"])
+                unique_attached_policies.add(policy.PolicyName)
 
         policy_count += len(unique_user_policies)
         policy_count += len(unique_attached_policies)
@@ -36,4 +36,35 @@ class DashboardService:
             ec2=ec2_count,
             s3=s3_count,
             policy=policy_count
+        )
+
+    async def get_account_count(self, user_id: str) -> AccountCountResponseSchema:
+        user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
+
+        users = len(user_assets.asset.IAM)
+        roles = len(user_assets.asset.Role)
+        policies = 0
+        groups = 0
+
+        unique_user_policies = set()
+        unique_attached_policies = set()
+        
+        # Policy, Group 개수 계산
+        for iam in user_assets.asset.IAM:
+            for policy in iam.UserPolicies:
+                unique_user_policies.add(policy.PolicyName)
+
+            for policy in iam.AttachedPolicies:
+                unique_attached_policies.add(policy.PolicyName)
+                
+            groups += len(iam.Groups)
+        
+        policies += len(unique_user_policies)
+        policies += len(unique_attached_policies)
+
+        return AccountCountResponseSchema(
+            users=users,
+            policies=policies,
+            roles=roles,
+            groups=groups
         )

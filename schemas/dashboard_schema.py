@@ -16,3 +16,19 @@ class AccountByServiceResponseSchema(BaseModel):
                 "policy": 6
             }
         }
+
+class AccountCountResponseSchema(BaseModel):
+    users: int
+    policies: int
+    roles: int
+    groups: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "users": 1,
+                "policies": 6,
+                "roles": 1,
+                "groups": 6
+            }
+        }
