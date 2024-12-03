@@ -2,6 +2,7 @@ import boto3
 from dotenv import load_dotenv
 import os
 
+
 # .env 파일 로드
 load_dotenv()
 
@@ -50,7 +51,9 @@ def get_iam_users():
         # 사용자에 연결된 관리형 정책 가져오기
         attached_policies = iam_client.list_attached_user_policies(UserName=user_name).get("AttachedPolicies", [])
         for policy in attached_policies:
-            policy_arn = policy["PolicyArn"]
+            policy_arn = policy.get("PolicyArn", None)
+            if not policy_arn:
+                continue
 
             # 1. 최신 버전 ID를 가져오기 위해 get_policy 호출
             policy_details = iam_client.get_policy(PolicyArn=policy_arn)
@@ -86,3 +89,63 @@ def get_iam_users():
         iam_users.append(user_info)
     
     return iam_users
+
+
+# IAM 역할 정보를 가져오는 함수
+def get_roles():
+    iam_roles = []
+    roles = iam_client.list_roles()['Roles']
+    for role in roles:
+        role_name = role["RoleName"]
+        role_info = {
+            "Path": role.get("Path"),
+            "RoleName": role_name,
+            "RoleId": role.get("RoleId"),
+            "Arn": role.get("Arn"),
+            "CreateDate": role.get("CreateDate"),
+            "AssumeRolePolicyDocument": role.get("AssumeRolePolicyDocument", {}),
+            "Description": role.get("Description", ""),
+            "MaxSessionDuration": role.get("MaxSessionDuration"),
+            "PermissionsBoundary": role.get("PermissionsBoundary", {}),
+            "Tags": role.get("Tags", []),
+            "AttachedPolicies": [],
+            "InlinePolicies": []
+        }
+
+        # 관리형 정책 가져오기
+        attached_policies = iam_client.list_attached_role_policies(RoleName=role_name).get("AttachedPolicies", [])
+        for policy in attached_policies:
+            policy_arn = policy.get("PolicyArn", None)
+            if not policy_arn:
+                continue
+
+            # 관리형 정책의 기본 버전 가져오기
+            policy_details = iam_client.get_policy(PolicyArn=policy_arn)
+            default_version_id = policy_details["Policy"]["DefaultVersionId"]
+
+            # 관리형 정책의 내용 가져오기
+            policy_version = iam_client.get_policy_version(
+                PolicyArn=policy_arn,
+                VersionId=default_version_id
+            )
+            policy_document = policy_version["PolicyVersion"]["Document"]
+
+            role_info["AttachedPolicies"].append({
+                "PolicyName": policy["PolicyName"],
+                "PolicyArn": policy_arn,
+                "PolicyDocument": policy_document
+            })
+
+        # 인라인 정책 가져오기
+        inline_policies = iam_client.list_role_policies(RoleName=role_name).get("PolicyNames", [])
+        for policy_name in inline_policies:
+            # 인라인 정책 내용 가져오기
+            policy_details = iam_client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
+            role_info["InlinePolicies"].append({
+                "PolicyName": policy_name,
+                "PolicyDocument": policy_details["PolicyDocument"]
+            })
+
+        iam_roles.append(role_info)
+
+    return iam_roles

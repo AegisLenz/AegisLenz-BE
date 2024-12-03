@@ -2,17 +2,31 @@ from odmantic import Model, EmbeddedModel
 from typing import List, Optional
 from datetime import datetime
 
+
 class AccessKey(EmbeddedModel):
     AccessKeyId: str
     Status: str
     LastUsedDate: Optional[datetime]
 
+class UserPolicy(EmbeddedModel):
+    PolicyName: str
+    PolicyDocument: dict
+
+class AttachedPolicy(EmbeddedModel):
+    PolicyName: str
+    PolicyArn: Optional[str] = None
+    PolicyDocument: dict
+
+class InlinePolicy(EmbeddedModel):
+    PolicyName: str
+    PolicyDocument: dict
+
 class IAMUser(EmbeddedModel):
     UserName: str
     UserId: str
     CreateDate: datetime
-    UserPolicies: List[dict]
-    AttachedPolicies: List[dict]
+    UserPolicies: List[UserPolicy] = []
+    AttachedPolicies: List[AttachedPolicy] = []
     Groups: List[str]
     PasswordLastUsed: Optional[datetime]
     AccessKeysLastUsed: List[AccessKey]
@@ -57,8 +71,23 @@ class S3_Bucket(EmbeddedModel):
     Versioning: Optional[str]
     Tags: Optional[List[dict]]
 
-class Asset(EmbeddedModel):  # EmbeddedModel로 수정
+class Role(EmbeddedModel):
+    Path: str
+    RoleName: str
+    RoleId: str
+    Arn: str
+    CreateDate: datetime
+    AssumeRolePolicyDocument: dict
+    Description: Optional[str] = ""
+    MaxSessionDuration: Optional[int] = 3600
+    PermissionsBoundary: Optional[dict] = None
+    Tags: Optional[List[dict]] = []
+    AttachedPolicies: List[AttachedPolicy] = []
+    InlinePolicies: List[InlinePolicy] = []
+
+class Asset(EmbeddedModel):
     IAM: List[IAMUser]
+    Role: List[Role]
     EC2: List[EC2]
     S3: List[S3_Bucket]
 
