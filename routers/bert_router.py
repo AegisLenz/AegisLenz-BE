@@ -9,18 +9,17 @@ from schemas.bert_schema import PredictionSchema
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from database.redis_driver import RedisDriver
-import logging
+from common.logging import setup_logger
 
 # 환경 변수 로드
 load_dotenv()
 
 # 로거 설정
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = setup_logger()
 
 # Elasticsearch 클라이언트 설정
-es_host = os.getenv("ES_HOST", "http://23.23.93.131")
-es_port = os.getenv("ES_PORT", "9200")
+es_host = os.getenv("ES_HOST")
+es_port = os.getenv("ES_PORT")
 es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
 es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
 
@@ -42,48 +41,46 @@ ELASTICSEARCH_MAPPING_FILE = os.path.join(COMMON_DIR, "elasticsearch_mapping.jso
 def load_json(file_path):
     try:
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"{file_path} 경로에 파일이 존재하지 않습니다.")
+            raise FileNotFoundError(f"File not found at {file_path}")
         
         with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
-            logger.info(f"{file_path} 로드 성공")
+            logger.info(f"Successfully loaded {file_path}")
             return data
     except Exception as e:
-        logger.error(f"{file_path} 로드 실패: {e}")
+        logger.error(f"Failed to load {file_path}: {e}")
         return {}
 
 # JSON 데이터 로드
-TACTICS_TECHNIQUES_MAPPING = load_json(TACTICS_MAPPING_FILE)
+tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 elasticsearch_mapping = load_json(ELASTICSEARCH_MAPPING_FILE)
 
 def initialize_elasticsearch_mapping():
     """
-    Elasticsearch 매핑(스키마)을 설정하는 함수.
+    Set up Elasticsearch mapping (schema).
     """
-    index_name = "cloudtrail-logs"
+    index_name = os.getenv("ES_INDEX", "cloudtrail-logs")
 
     try:
-        # 인덱스 존재 여부 확인
         if not es.indices.exists(index=index_name):
             es.indices.create(index=index_name, body=elasticsearch_mapping)
-            logger.info(f"Elasticsearch 인덱스 '{index_name}' 생성 및 매핑 적용 완료.")
+            logger.info(f"Created and applied mapping to Elasticsearch index '{index_name}'.")
         else:
-            logger.info(f"Elasticsearch 인덱스 '{index_name}' 이미 존재.")
+            logger.info(f"Elasticsearch index '{index_name}' already exists.")
     except Exception as e:
-        logger.error(f"Elasticsearch 매핑 설정 중 오류 발생: {e}")
+        logger.error(f"Error setting up Elasticsearch mapping: {e}")
 
-# Elasticsearch 매핑 초기화
 initialize_elasticsearch_mapping()
 
 def normalize_key(key: str) -> str:
     """
-    Key를 정규화하여 매핑의 일관성을 유지
+    Normalize a key to maintain consistency in mappings.
     """
     return key.strip().lower().replace(" ", "").replace("-", "")
 
 async def fetch_logs_from_elasticsearch():
     """
-    Elasticsearch에서 최근 5개의 로그를 가져오는 함수
+    Fetch the last 5 logs from Elasticsearch.
     """
     try:
         response = es.search(
@@ -95,16 +92,16 @@ async def fetch_logs_from_elasticsearch():
             }
         )
         logs = [hit["_source"] for hit in response["hits"]["hits"]]
-        logger.info(f"Elasticsearch에서 {len(logs)}개의 로그를 가져왔습니다.")
+        logger.info(f"Fetched {len(logs)} logs from Elasticsearch.")
         return logs
     except es_exceptions.ConnectionError as e:
-        logger.error(f"Elasticsearch 연결 오류: {str(e)}")
+        logger.error(f"Elasticsearch connection error: {str(e)}")
         return []
     except es_exceptions.RequestError as e:
-        logger.error(f"Elasticsearch 요청 오류: {str(e)}")
+        logger.error(f"Elasticsearch request error: {str(e)}")
         return []
     except Exception as e:
-        logger.error(f"Elasticsearch에서 로그를 가져오는 중 오류 발생: {str(e)}")
+        logger.error(f"Error fetching logs from Elasticsearch: {str(e)}")
         return []
 
 @router.get("/events", response_model=PredictionSchema)
@@ -131,12 +128,10 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                             prediction = await bert_service.predict_attack(buffer)
                             
                             logger.info(f"Raw prediction value for {source_ip}: {prediction}")
-                            logger.info(f"Type of prediction: {type(prediction)}")
-
                             normalized_prediction = normalize_key(str(prediction))
                             logger.info(f"Normalized prediction: {normalized_prediction}")
 
-                            tactic = TACTICS_TECHNIQUES_MAPPING.get(normalized_prediction, "Unknown Tactic")
+                            tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
                             logger.info(f"Mapped tactic: {tactic}")
 
                             if tactic == "Unknown Tactic":
@@ -150,10 +145,21 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                     "attack_time": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
                                 }
 
-                                # Elasticsearch에 저장
+                                # BERT 결과 Elasticsearch에 저장
                                 es.index(index="cloudtrail-logs", body=attack_document)
-                                logger.info(f"Elasticsearch에 저장된 문서: {attack_document}")
+                                logger.info(f"Document saved to Elasticsearch: {attack_document}")
 
+                                user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
+                                attack_info = {
+                                    "tactic": tactic,
+                                    "technique": str(prediction),
+                                    "time": datetime.now().isoformat()
+                                }
+                                try:
+                                    prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
+                                    logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
+                                except Exception as e:
+                                    logger.error(f"Error in process_after_detection for {user_id}: {e}")
                                 yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
 
                             await redis_driver.log_prediction(source_ip, {"prediction": str(prediction)})
