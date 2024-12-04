@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from odmantic import ObjectId
 from typing import List
 
 
@@ -69,3 +70,12 @@ class RisksResponseSchema(BaseModel):
                 "default_security_groups_allow_traffic": 13
             }
         }
+
+
+class ReportSummary(BaseModel):
+    report_id: ObjectId
+    summary: str
+
+
+class ReportCheckResponseSchema(BaseModel):
+    report_check: list[ReportSummary]

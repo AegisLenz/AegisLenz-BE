@@ -11,12 +11,13 @@ class BertRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
     
-    async def save_attack_detection(self, report: str, least_privilege_policy: Dict[str, Dict[str, List[Any]]]) -> str:
+    async def save_attack_detection(self, report: str, least_privilege_policy: Dict[str, Dict[str, List[Any]]], user_id: str) -> str:
         try:
             # AttackDetection 객체 생성
             attack_detection = AttackDetection(
                 report=report,
                 least_privilege_policy=least_privilege_policy,
+                user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             
@@ -33,5 +34,15 @@ class BertRepository:
                 AttackDetection.id == ObjectId(attack_detaction_id)
             )
             return attack_detection
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_reports(self, user_id: str):
+        try:
+            reports = await self.mongodb_engine.find(
+                AttackDetection,
+                AttackDetection.user_id == user_id
+            )
+            return reports
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")

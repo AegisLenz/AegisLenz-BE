@@ -1,21 +1,28 @@
 import os
 import boto3
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from dotenv import load_dotenv
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from datetime import datetime, timedelta, timezone
 from services.policy_service import PolicyService
+from services.gpt_service import GPTService
 from repositories.asset_repository import AssetRepository
-from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema
+from repositories.bert_repository import BertRepository
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary
 from common.logging import setup_logger
 
 logger = setup_logger()
 
 
 class DashboardService:
-    def __init__(self, policy_service: PolicyService = Depends(), asset_repository: AssetRepository = Depends()):
+    def __init__(self, policy_service: PolicyService = Depends(), gpt_service: GPTService = Depends(),
+                 asset_repository: AssetRepository = Depends(), bert_repository: BertRepository = Depends()):
         self.policy_service = policy_service
+        self.gpt_service = gpt_service
         self.asset_repository = asset_repository
+        self.bert_repository = bert_repository
+
+        load_dotenv()
         self.es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
         self.es_attack_index = os.getenv("ES_ATTACK_INDEX", "cloudtrail-logs")
         self.es = Elasticsearch(
@@ -24,7 +31,7 @@ class DashboardService:
             retry_on_timeout=True,
             request_timeout=120
         )
-        load_dotenv()
+
         self.session = boto3.Session(
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
@@ -33,8 +40,17 @@ class DashboardService:
         self.iam_client = self.session.client('iam')
         self.ec2_client = self.session.client('ec2')
 
+        try:
+            self.init_prompts = self.gpt_service._load_prompts()
+            logger.debug("Successfully loaded initial prompts.")
+        except Exception as e:
+            logger.error(f"Failed to load initial prompts: {e}")
+            raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
+
     async def get_account_by_service(self, user_id: str) -> AccountByServiceResponseSchema:
         user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
+        if not user_assets:
+            raise HTTPException(status_code=404, detail=f"No assets found for user_id: {user_id}")
 
         # IAM, EC2, S3 개수 계산
         iam_count = len(user_assets.asset.IAM)
@@ -68,6 +84,8 @@ class DashboardService:
 
     async def get_account_count(self, user_id: str) -> AccountCountResponseSchema:
         user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
+        if not user_assets:
+            raise HTTPException(status_code=404, detail=f"No assets found for user_id: {user_id}")
 
         users = len(user_assets.asset.IAM)
         roles = len(user_assets.asset.Role)
@@ -98,22 +116,27 @@ class DashboardService:
         )
 
     def _fetch_monthly_logs(self, index: str):
-        response = self.es.search(index=index, body={
-                "size": 0,
-                "query": {"match_all": {}},
-                "aggs": {
-                    "logs_per_month": {
-                        "date_histogram": {
-                            "field": "@timestamp",
-                            "calendar_interval": "month",
-                            "format": "yyyy-MM",
-                            "time_zone": "Asia/Seoul"
+        try:
+            response = self.es.search(index=index, body={
+                    "size": 0,
+                    "query": {"match_all": {}},
+                    "aggs": {
+                        "logs_per_month": {
+                            "date_histogram": {
+                                "field": "@timestamp",
+                                "calendar_interval": "month",
+                                "format": "yyyy-MM",
+                                "time_zone": "Asia/Seoul"
+                            }
                         }
                     }
                 }
-            }
-        )
-        return response["aggregations"]["logs_per_month"]["buckets"]
+            )
+            return response["aggregations"]["logs_per_month"]["buckets"]
+        except es_exceptions.NotFoundError:
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except es_exceptions.ElasticsearchException as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching total log count: {str(e)}")
 
     def get_detection(self, user_id: str) -> DetectionResponseSchema:
         # 정상 및 공격 로그 조회
@@ -143,17 +166,39 @@ class DashboardService:
         return DetectionResponseSchema(monthly_detection=monthly_detection)
 
     async def get_score(self, user_id: str) -> ScoreResponseSchema:
-        total_log_response = self.es.count(index=self.es_index, body={"query": {"match_all": {}}})
-        total_log_cnt = total_log_response['count']
+        try:
+            # 전체 로그 개수 가져오기
+            total_log_response = self.es.count(index=self.es_index, body={"query": {"match_all": {}}})
+            total_log_cnt = total_log_response['count']
+        except es_exceptions.NotFoundError:
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except es_exceptions.ElasticsearchException as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching total log count: {str(e)}")
 
-        total_attack_log_response = self.es.count(index=self.es_attack_index, body={"query": {"match_all": {}}})
-        total_attack_log_cnt = total_attack_log_response['count']
+        try:
+            # 공격 로그 개수 가져오기
+            total_attack_log_response = self.es.count(index=self.es_attack_index, body={"query": {"match_all": {}}})
+            total_attack_log_cnt = total_attack_log_response['count']
+        except es_exceptions.NotFoundError:
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_attack_index}' not found.")
+        except es_exceptions.ElasticsearchException as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching total attack log count: {str(e)}")
 
-        user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
-        iam_cnt = len(user_assets.asset.IAM)
+        try:
+            # 사용자 자산 정보 가져오기
+            user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
+            if not user_assets or not hasattr(user_assets.asset, 'IAM'):
+                raise HTTPException(status_code=404, detail=f"No assets found for user_id: {user_id}")
+            iam_cnt = len(user_assets.asset.IAM)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching assets for user_id {user_id}: {str(e)}")
 
-        least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-        problem_iam_cnt = len(least_privilege_policy["least_privilege_policy"])
+        try:
+            # 최소 권한 정책 생성
+            least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
+            problem_iam_cnt = len(least_privilege_policy["least_privilege_policy"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating least privilege policy for user_id {user_id}: {str(e)}")
 
         # 단일 점수 계산
         attack_log_score = (1 - total_attack_log_cnt / total_log_cnt) * 100
@@ -261,3 +306,21 @@ class DashboardService:
             MFA_not_enabled_for_root_user=root_mfa_count,
             default_security_groups_allow_traffic=risky_security_groups_count
         )
+
+    async def get_report_check(self, user_id: str) -> ReportCheckResponseSchema:
+        reports = await self.bert_repository.find_reports(user_id)
+        if not reports:
+            raise HTTPException(status_code=404, detail=f"No reports found for user_id: {user_id}")
+        
+        report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
+            totalreport=reports
+        )
+        report_check_prompt = [{"role": "system", "content": report_check_content}]
+        response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
+        
+        report_lines = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
+        report_check = []
+        for i, line in enumerate(report_lines):
+            report_check.append(ReportSummary(report_id=reports[i].id, summary=line))
+        
+        return ReportCheckResponseSchema(report_check=report_check)

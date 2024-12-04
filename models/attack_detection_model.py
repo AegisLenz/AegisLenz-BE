@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class AttackDetection(Model):
-    user_id: Optional[str] = None  # foreign key (FK) 역할
+    user_id: Optional[str] = None
     elasticsearch_index_id: Optional[str] = None
     ip_address: Optional[str] = None
     report: str
@@ -12,3 +12,10 @@ class AttackDetection(Model):
     created_at: datetime
 
     model_config = {"collection": "attack_detections"}
+
+
+class Report(Model):
+    report_id: Optional[str]
+    report_string: str
+
+    model_config = {"collection": "reports"}
