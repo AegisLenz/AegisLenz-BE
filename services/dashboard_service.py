@@ -1,19 +1,23 @@
 import os
 from fastapi import Depends
-from elasticsearch import Elasticsearch, exceptions as es_exceptions
+from elasticsearch import Elasticsearch
+from services.policy_service import PolicyService
 from repositories.asset_repository import AssetRepository
-from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
 
 
 class DashboardService:
-    def __init__(self, asset_repository: AssetRepository = Depends()):
+    def __init__(self, policy_service: PolicyService = Depends(), asset_repository: AssetRepository = Depends()):
+        self.policy_service = policy_service
         self.asset_repository = asset_repository
+        self.es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
+        self.es_attack_index = os.getenv("ES_ATTACK_INDEX", "cloudtrail-logs")
         self.es = Elasticsearch(
             f"{os.getenv("ES_HOST")}:{os.getenv("ES_PORT")}",
-            max_retries=10,
+            max_retries=10, 
             retry_on_timeout=True,
             request_timeout=120
         )
@@ -101,12 +105,9 @@ class DashboardService:
         return response["aggregations"]["logs_per_month"]["buckets"]
 
     def get_detection(self, user_id: str) -> DetectionResponseSchema:
-        es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
-        es_attack_index = "cloudtrail-logs"
-
         # 정상 및 공격 로그 조회
-        monthly_normal_logs = self._fetch_monthly_logs(es_index)
-        monthly_attack_logs = self._fetch_monthly_logs(es_attack_index)
+        monthly_normal_logs = self._fetch_monthly_logs(self.es_index)
+        monthly_attack_logs = self._fetch_monthly_logs(self.es_attack_index)
 
         # 기본 월별 요약 초기화
         predefined_months = ['2024-07', '2024-08', '2024-09', '2024-10']
@@ -129,3 +130,25 @@ class DashboardService:
             })
 
         return DetectionResponseSchema(monthly_detection=monthly_detection)
+
+    async def get_score(self, user_id: str) -> ScoreResponseSchema:
+        total_log_response = self.es.count(index=self.es_index, body={"query": {"match_all": {}}})
+        total_log_cnt = total_log_response['count']
+
+        total_attack_log_response = self.es.count(index=self.es_attack_index, body={"query": {"match_all": {}}})
+        total_attack_log_cnt = total_attack_log_response['count']
+
+        user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
+        iam_cnt = len(user_assets.asset.IAM)
+
+        least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
+        problem_iam_cnt = len(least_privilege_policy["least_privilege_policy"])
+
+        # 단일 점수 계산
+        attack_log_score = (1 - total_attack_log_cnt / total_log_cnt) * 100
+        problem_iam_score = (1 - problem_iam_cnt / iam_cnt) * 100
+
+        # 평균 점수
+        score = (attack_log_score + problem_iam_score) / 2
+        
+        return ScoreResponseSchema(score=score)

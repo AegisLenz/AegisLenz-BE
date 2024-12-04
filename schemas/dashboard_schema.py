@@ -46,3 +46,7 @@ class MonthlyLog(BaseModel):
 
 class DetectionResponseSchema(BaseModel):
     monthly_detection: List[MonthlyLog]
+
+
+class ScoreResponseSchema(BaseModel):
+    score: float

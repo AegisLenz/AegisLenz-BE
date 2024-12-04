@@ -26,8 +26,8 @@ def comparePolicy(userPolicy, policy_by_cloudTrail):
     
     # 사용자 정책과 최소 권한 액션 비교
     for policy in userPolicy:
-        policy_document = policy.get("PolicyDocument",{})
-        for statement in policy_document.get("Statement",[]):
+        policy_document = policy.PolicyDocument
+        for statement in policy_document.get("Statement", []):
             actions = statement.get("Action", [])
             if isinstance(actions, str):
                 actions = [actions]
