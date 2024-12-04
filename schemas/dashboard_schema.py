@@ -50,3 +50,22 @@ class DetectionResponseSchema(BaseModel):
 
 class ScoreResponseSchema(BaseModel):
     score: float
+
+
+class RisksResponseSchema(BaseModel):
+    inactive_identities: int
+    identity_with_excessive_policies: int
+    MFA_not_enabled_for_users: int
+    MFA_not_enabled_for_root_user: int
+    default_security_groups_allow_traffic: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "inactive_identities": 1,
+                "identity_with_excessive_policies": 2,
+                "MFA_not_enabled_for_users": 3,
+                "MFA_not_enabled_for_root_user": 0,
+                "default_security_groups_allow_traffic": 13
+            }
+        }

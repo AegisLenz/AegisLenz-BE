@@ -1,9 +1,12 @@
 import os
+import boto3
 from fastapi import Depends
+from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
+from datetime import datetime, timedelta, timezone
 from services.policy_service import PolicyService
 from repositories.asset_repository import AssetRepository
-from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -21,6 +24,14 @@ class DashboardService:
             retry_on_timeout=True,
             request_timeout=120
         )
+        load_dotenv()
+        self.session = boto3.Session(
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION")
+        )
+        self.iam_client = self.session.client('iam')
+        self.ec2_client = self.session.client('ec2')
 
     async def get_account_by_service(self, user_id: str) -> AccountByServiceResponseSchema:
         user_assets = await self.asset_repository.find_asset_by_user_id(user_id)
@@ -152,3 +163,101 @@ class DashboardService:
         score = (attack_log_score + problem_iam_score) / 2
         
         return ScoreResponseSchema(score=score)
+
+    def _get_inactive_users_count(self, threshold_days=90) -> int:
+        """90일 동안 비활성화된 사용자 수 반환"""
+        now = datetime.now(timezone.utc)
+        threshold_date = now - timedelta(days=threshold_days)
+
+        inactive_count = 0
+        users = self.iam_client.list_users()
+
+        for user in users.get('Users', []):
+            username = user['UserName']
+            is_inactive = True
+
+            # Check PasswordLastUsed
+            user_details = self.iam_client.get_user(UserName=username)
+            password_last_used = user_details.get('User', {}).get('PasswordLastUsed')
+            if password_last_used and password_last_used > threshold_date:
+                is_inactive = False
+
+            # Check accessKeyLastUsed
+            access_keys = self.iam_client.list_access_keys(UserName=username)
+            for key in access_keys.get('AccessKeyMetadata', []):
+                access_key_last_used = self.iam_client.get_access_key_last_used(AccessKeyId=key['AccessKeyId']).get('AccessKeyLastUsed', {}).get('LastUsedDate')
+                if access_key_last_used and access_key_last_used > threshold_date:
+                    is_inactive = False
+
+            if is_inactive:
+                inactive_count += 1
+
+        logger.debug(f"Inactive users count: {inactive_count}")
+        return inactive_count
+
+    def _get_users_without_mfa_count(self) -> int:
+        """MFA가 설정되지 않은 사용자 수 반환"""
+        users_without_mfa_count = 0
+        users = self.iam_client.list_users()
+
+        for user in users.get('Users', []):
+            username = user['UserName']
+
+            # MFA 장치 조회
+            mfa_devices = self.iam_client.list_mfa_devices(UserName=username)
+            if not mfa_devices.get('MFADevices'):  # MFA 장치가 없는 경우
+                users_without_mfa_count += 1
+
+        logger.debug(f"Users without MFA count: {users_without_mfa_count}")
+        return users_without_mfa_count
+
+    def _check_root_mfa_enabled_count(self) -> int:
+        """루트 계정의 MFA 설정 여부 반환 (0: 미설정, 1: 설정됨)"""
+        summary = self.iam_client.get_account_summary()
+        mfa_enabled = summary['SummaryMap'].get('AccountMFAEnabled', 0)
+        logger.debug(f"Root MFA enabled: {bool(mfa_enabled)}")
+        return 0 if mfa_enabled == 0 else 1
+
+    def _count_risky_security_groups(self) -> int:
+        """기본 보안 그룹에서 위험한 규칙 수 반환"""
+        risky_count = 0
+        response = self.ec2_client.describe_security_groups()
+        security_groups = response['SecurityGroups']
+
+        for sg in security_groups:
+            for ingress_rule in sg.get('IpPermissions', []):
+                for ip_range in ingress_rule.get('IpRanges', []):
+                    if ip_range.get('CidrIp') == '0.0.0.0/0':
+                        risky_count += 1
+            for egress_rule in sg.get('IpPermissionsEgress', []):
+                for ip_range in egress_rule.get('IpRanges', []):
+                    if ip_range.get('CidrIp') == '0.0.0.0/0':
+                        risky_count += 1
+
+        logger.debug(f"Risky security group rules count: {risky_count}")
+        return risky_count
+
+    async def get_risks(self, user_id: str) -> RisksResponseSchema:
+        # Inactive Identities
+        inactive_users_count = self._get_inactive_users_count()
+
+        # Identities with Excessive Policies
+        least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
+        identity_with_excessive_policies = len(least_privilege_policy["least_privilege_policy"])
+
+        # MFA Not Enabled for Users
+        users_without_mfa_count = self._get_users_without_mfa_count()
+
+        # MFA Not Enabled for Root User
+        root_mfa_count = self._check_root_mfa_enabled_count()
+
+        # Default Security Groups Allow Traffic
+        risky_security_groups_count = self._count_risky_security_groups()
+
+        return RisksResponseSchema(
+            inactive_identities=inactive_users_count,
+            identity_with_excessive_policies=identity_with_excessive_policies,
+            MFA_not_enabled_for_users=users_without_mfa_count,
+            MFA_not_enabled_for_root_user=root_mfa_count,
+            default_security_groups_allow_traffic=risky_security_groups_count
+        )

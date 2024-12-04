@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from services.dashboard_service import DashboardService
-from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -19,3 +19,7 @@ def get_detection(user_id: str = "1", dashboard_service: DashboardService = Depe
 @router.get("/score", response_model=ScoreResponseSchema)
 async def get_score(user_id: str = "1", dashboard_service: DashboardService = Depends()):
     return await dashboard_service.get_score(user_id)
+
+@router.get("/risks", response_model=RisksResponseSchema)
+async def get_risks(user_id: str = "1", dashboard_service: DashboardService = Depends()):
+    return await dashboard_service.get_risks(user_id)
