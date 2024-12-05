@@ -12,6 +12,7 @@ from repositories.user_repository import UserRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
 from services.policy.filter_original_policy import filter_original_policy
 from common.logging import setup_logger
+
 logger = setup_logger()
 
 
@@ -41,28 +42,30 @@ class PromptService:
     async def get_prompt_chats(self, prompt_session_id: str) -> GetPromptContentsResponseSchema:
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
 
+        prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
+        title = prompt_session.title
+
         prompt_chats = await self.prompt_repository.get_prompt_chats(prompt_session_id)
         chats = [
             GetPromptContentsSchema(role=chat.role, content=chat.content)
             for chat in prompt_chats
         ]
+        
+        report, recommend_questions, least_privilege_policy = None, None, None
 
-        report = None
-        recommend_questions = None
-        least_privilege_policy = None
-        
-        # 공격에 대한 프롬프트 대화창인 경우 report와 recommend_questions도 같이 반환
+        # 공격 프롬프트 창인 경우 report, least_privilege_policy, recommend_questions 가져오기
         is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
-        
         if is_attack_prompt:
-            prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
-            if prompt_session:
-                attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+            attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+            if attack_detection:
                 report = attack_detection.report
                 least_privilege_policy = attack_detection.least_privilege_policy
                 recommend_questions = prompt_session.recommend_questions[:3]
+            else:
+                raise HTTPException(status_code=404, detail=f"attack_detection not found with ID: {prompt_session.attack_detection_id}")
 
         return GetPromptContentsResponseSchema(
+            title=title,
             chats=chats,
             report=report,
             least_privilege_policy=least_privilege_policy,

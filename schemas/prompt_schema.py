@@ -61,6 +61,7 @@ class GetPromptContentsSchema(BaseModel):
 
 
 class GetPromptContentsResponseSchema(BaseModel):
+    title: str
     chats: List[GetPromptContentsSchema]
     report: Optional[str]
     least_privilege_policy: Optional[Dict[str, Dict[str, List[Any]]]]
@@ -69,6 +70,7 @@ class GetPromptContentsResponseSchema(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "title": "Title",
                 "chats": [
                     {"role": "user", "content": "최근에 변경된 자산 정보를 보여주세요."},
                     {"role": "assistant", "content": "여기 최근 자산 변경 내역입니다."},

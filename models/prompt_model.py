@@ -1,5 +1,6 @@
 from odmantic import Model, ObjectId
-from typing import List, Optional, Dict
+from odmantic.field import Field
+from typing import Optional
 from datetime import datetime
 
 
@@ -8,8 +9,8 @@ class PromptSession(Model):
     title: Optional[str] = None
 
     attack_detection_id: Optional[ObjectId] = None
-    recommend_history: Optional[List[Dict]] = []
-    recommend_questions: Optional[List[str]] = []
+    recommend_history: Optional[list[dict]] = Field(default_factory=list)
+    recommend_questions: Optional[list[str]] = Field(default_factory=list)
 
     created_at: datetime
     updated_at: datetime
