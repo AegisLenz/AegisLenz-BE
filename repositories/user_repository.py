@@ -37,6 +37,9 @@ class UserRepository:
                 UserAsset,
                 UserAsset.user_id == user_id
             )
+            if not user_asset:
+                raise HTTPException(status_code=404, detail=f"No policies found for user ID '{user_id}'.")
+            
             # 각 IAM 유저의 AttachedPolicies를 추출하여 반환
             attached_policies_by_user = {
                 iam.UserName: iam.AttachedPolicies for iam in user_asset.asset.IAM
@@ -61,6 +64,7 @@ class UserRepository:
             
             user.bookmark.append(question)
             await self.mongodb_engine.save(user)
+            return {"message": f"Bookmark '{question}' successfully added for user ID '{user_id}'."}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
@@ -73,3 +77,22 @@ class UserRepository:
             return user.bookmark
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def delete_bookmark(self, user_id: str, question: str):
+        try:
+            user = await self.mongodb_engine.find_one(
+                User,
+                User.id == user_id
+            )
+            if not user:
+                raise HTTPException(status_code=404, detail=f"User with ID '{user_id}' not found")
+
+            if question in user.bookmark:
+                user.bookmark.remove(question)
+                user.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+                await self.mongodb_engine.save(user)
+                return {"message": f"The bookmark '{question}' has been successfully deleted for user ID '{user_id}'"}
+            else:
+                raise HTTPException(status_code=404, detail=f"The bookmark '{question}' was not found for user ID '{user_id}'")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred while deleting the bookmark: {str(e)}")
