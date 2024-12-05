@@ -1,5 +1,5 @@
 from odmantic import Model
-from pydantic import Field
+from odmantic.field import Field
 from typing import Optional
 from datetime import datetime
 
