@@ -30,7 +30,7 @@ class UserRepository:
                 logger.error(f"Invalid asset type '{asset_type}' specified for user ID '{user_id}'.")
                 raise HTTPException(status_code=400, detail=f"Invalid asset type '{asset_type}' specified. Valid types are 'EC2', 'S3_Bucket', or 'IAMUser'.")
         except Exception as e:
-            logger.error(f"Unexpected error while fetching assets for user ID '{user_id}': {e}")
+            logger.error(f"Error retrieving assets for user ID '{user_id}', Asset Type: '{asset_type}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred while retrieving assets for user ID '{user_id}'. Please try again later.")
     
     async def get_user_policies(self, user_id: str):
@@ -42,14 +42,14 @@ class UserRepository:
             if not user_asset:
                 logger.error(f"No policies found for user ID '{user_id}'.")
                 raise HTTPException(status_code=404, detail=f"No policies found for user ID '{user_id}'.")
-            
+
             # 각 IAM 유저의 AttachedPolicies를 추출하여 반환
             attached_policies_by_user = {
                 iam.UserName: iam.AttachedPolicies for iam in user_asset.asset.IAM
             }
             return attached_policies_by_user
         except Exception as e:
-            logger.error(f"Unexpected error while fetching policies for user ID '{user_id}': {e}")
+            logger.error(f"Error retrieving policies for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve user policies for user ID '{user_id}': {str(e)}")
 
     async def create_bookmark(self, user_id: str, question: str):
@@ -60,7 +60,7 @@ class UserRepository:
             )
             if not user:
                 user = User(
-                    id="1",
+                    id=user_id,
                     email="jyjyjy7418@gmail.com",
                     created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                     updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
@@ -70,7 +70,7 @@ class UserRepository:
             await self.mongodb_engine.save(user)
             return {"message": f"Bookmark '{question}' successfully added for user ID '{user_id}'."}
         except Exception as e:
-            logger.error(f"Unexpected error while adding bookmark for user ID '{user_id}': {e}")
+            logger.error(f"Error adding bookmark. User ID: '{user_id}', Question: '{question}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to add bookmark for user ID '{user_id}': {str(e)}")
 
     async def find_bookmark(self, user_id: str):
@@ -84,7 +84,7 @@ class UserRepository:
                 raise HTTPException(status_code=404, detail=f"User with ID '{user_id}' not found")
             return user.bookmark
         except Exception as e:
-            logger.error(f"Unexpected error while retrieving bookmarks for user ID '{user_id}': {e}")
+            logger.error(f"Error retrieving bookmarks for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve bookmarks for user ID '{user_id}': {str(e)}")
 
     async def delete_bookmark(self, user_id: str, question: str):
@@ -106,5 +106,5 @@ class UserRepository:
                 logger.error(f"The bookmark '{question}' was not found for user ID '{user_id}'.")
                 raise HTTPException(status_code=404, detail=f"The bookmark '{question}' was not found for user ID '{user_id}'")
         except Exception as e:
-            logger.error(f"Unexpected error while deleting bookmark '{question}' for user ID '{user_id}': {e}")
+            logger.error(f"Error deleting bookmark. User ID: '{user_id}', Question: '{question}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete bookmark '{question}' for user ID '{user_id}': {str(e)}")
