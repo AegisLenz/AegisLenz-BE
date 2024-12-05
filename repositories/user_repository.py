@@ -63,3 +63,13 @@ class UserRepository:
             await self.mongodb_engine.save(user)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_bookmark(self, user_id: str):
+        try:
+            user = await self.mongodb_engine.find_one(
+                User,
+                User.id == user_id
+            )
+            return user.bookmark
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")

@@ -16,4 +16,7 @@ class UserService:
         return await self.user_repository.get_user_asset(user_id, "S3_Bucket")
 
     async def create_bookmark(self, user_id: str, question: str):
-        return await self.user_repository.create_bookmark(user_id, question)
+        await self.user_repository.create_bookmark(user_id, question)
+
+    async def get_bookmark(self, user_id: str) -> list:
+        return await self.user_repository.find_bookmark(user_id)
