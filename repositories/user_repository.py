@@ -1,5 +1,7 @@
 from fastapi import HTTPException
+from datetime import datetime, timedelta, timezone
 from models.asset_model import UserAsset
+from models.user_model import User
 from database.mongodb_driver import mongodb
 from common.logging import setup_logger
 
@@ -40,5 +42,24 @@ class UserRepository:
                 iam.UserName: iam.AttachedPolicies for iam in user_asset.asset.IAM
             }
             return attached_policies_by_user
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def create_bookmark(self, user_id: str, question: str):
+        try:
+            user = await self.mongodb_engine.find_one(
+                User,
+                User.id == user_id
+            )
+            if not user:
+                user = User(
+                    id="1",
+                    email="jyjyjy7418@gmail.com",
+                    created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
+                    updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+                )
+            
+            user.bookmark.append(question)
+            await self.mongodb_engine.save(user)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")

@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from services.user_service import UserService
+from schemas.user_schema import BookmarkRequestSchema
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -18,3 +19,7 @@ async def get_user_IAM_asset(user_id: str, user_service: UserService = Depends()
 async def get_user_S3_asset(user_id: str, user_service: UserService = Depends()):
     user_asset = await user_service.get_user_S3_asset(user_id)
     return user_asset
+
+@router.post("/bookmark")
+async def create_bookmark(user_id: str = "1", request: BookmarkRequestSchema = Body(...), user_service: UserService = Depends()):
+    await user_service.create_bookmark(user_id, request.question)
