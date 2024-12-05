@@ -1,14 +1,17 @@
 from odmantic import Model
-from typing import Optional, Dict, List, Any
+from pydantic import Field
+from typing import Optional
 from datetime import datetime
 
 
 class AttackDetection(Model):
-    user_id: Optional[str] = None  # foreign key (FK) 역할
     elasticsearch_index_id: Optional[str] = None
     ip_address: Optional[str] = None
     report: str
-    least_privilege_policy: Dict[str, Dict[str, List[Any]]]
+    least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
+    attack_graph: str
+
+    user_id: str
     created_at: datetime
 
     model_config = {"collection": "attack_detections"}
