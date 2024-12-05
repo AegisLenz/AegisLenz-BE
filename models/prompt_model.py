@@ -5,7 +5,7 @@ from datetime import datetime
 
 class PromptSession(Model):
     user_id: Optional[ObjectId] = None
-    chat_summary: Optional[str] = None
+    title: Optional[str] = None
 
     attack_detection_id: Optional[ObjectId] = None
     recommend_history: Optional[List[Dict]] = []

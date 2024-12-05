@@ -172,3 +172,14 @@ class PromptRepository:
             await self.mongodb_engine.save(prompt_session)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while updating recommend data: {str(e)}")
+
+    async def save_title(self, prompt_session_id: str, title: str):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.id == ObjectId(prompt_session_id)
+            )
+            prompt_session.title = title
+            await self.mongodb_engine.save(prompt_session)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while save title: {str(e)}")

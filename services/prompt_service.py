@@ -106,6 +106,14 @@ class PromptService:
         ]
         return unique_questions[:3]
 
+    async def _create_prompt_title(self, prompt_session_id: str, user_question: str):
+        prompt_chats = await self.prompt_repository.get_prompt_chats(prompt_session_id)
+        if len(prompt_chats) == 0:
+            title_prompt = [{"role": "system", "content": "다음 사용자의 요청을 요약하여 15자 이내로 제목을 생성해 주세요.\n"}]
+            title_prompt.append({"role": "user", "content": user_question})
+            title = await self.gpt_service.get_response(title_prompt, json_format=False)
+            await self.prompt_repository.save_title(prompt_session_id, title)
+
     def _create_stream_response(self, status="processing", type=None, data=None) -> str:
         try:
             if data is not None:
@@ -234,6 +242,9 @@ class PromptService:
 
         # 스트리밍 완료 메시지 전송
         yield self._create_stream_response(status="complete")
+
+        # 타이틀 생성
+        await self._create_prompt_title(prompt_session_id, user_question)
 
         # DB에 채팅 내역 저장
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
