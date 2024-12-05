@@ -3,7 +3,7 @@ from odmantic import ObjectId
 from typing import Dict, List, Any
 from datetime import datetime, timedelta, timezone
 from database.mongodb_driver import mongodb
-from models.attack_detection_model import AttackDetection
+from models.attack_detection_model import AttackDetection, Report
 
 
 class BertRepository:
@@ -15,14 +15,22 @@ class BertRepository:
         try:
             # AttackDetection 객체 생성
             attack_detection = AttackDetection(
-                report=report,
                 least_privilege_policy=least_privilege_policy,
                 user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
+
+            # Report 객체 생성
+            report = Report(
+                report_content=report,
+                user_id=user_id,
+                attack_detection_id=attack_detection.id,
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
             
-            # MongoDB에 저장
             await self.mongodb_engine.save(attack_detection)
+            await self.mongodb_engine.save(report)
+
             return attack_detection.id
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
@@ -46,3 +54,14 @@ class BertRepository:
             return reports
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_report_by_attack_detection(self, attack_detection_id: str):
+        try:
+            report = await self.mongodb_engine.find_one(
+                Report,
+                Report.attack_detection_id == attack_detection_id
+            )
+            return report
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+    

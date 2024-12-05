@@ -52,8 +52,6 @@ def get_iam_users():
         attached_policies = iam_client.list_attached_user_policies(UserName=user_name).get("AttachedPolicies", [])
         for policy in attached_policies:
             policy_arn = policy.get("PolicyArn", None)
-            if not policy_arn:
-                continue
 
             # 1. 최신 버전 ID를 가져오기 위해 get_policy 호출
             policy_details = iam_client.get_policy(PolicyArn=policy_arn)
@@ -116,8 +114,6 @@ def get_roles():
         attached_policies = iam_client.list_attached_role_policies(RoleName=role_name).get("AttachedPolicies", [])
         for policy in attached_policies:
             policy_arn = policy.get("PolicyArn", None)
-            if not policy_arn:
-                continue
 
             # 관리형 정책의 기본 버전 가져오기
             policy_details = iam_client.get_policy(PolicyArn=policy_arn)

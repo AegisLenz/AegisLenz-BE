@@ -8,25 +8,24 @@ class AccessKey(EmbeddedModel):
     Status: str
     LastUsedDate: Optional[datetime]
 
-class UserPolicy(EmbeddedModel):
-    PolicyName: str
-    PolicyDocument: dict
+# class UserPolicy(EmbeddedModel):
+#     PolicyName: str
+#     PolicyDocument: dict
 
-class AttachedPolicy(EmbeddedModel):
-    PolicyName: str
-    PolicyArn: Optional[str] = None
-    PolicyDocument: dict
+# class AttachedPolicy(EmbeddedModel):
+#     PolicyName: str
+#     PolicyDocument: dict
 
-class InlinePolicy(EmbeddedModel):
-    PolicyName: str
-    PolicyDocument: dict
+# class InlinePolicy(EmbeddedModel):
+#     PolicyName: str
+#     PolicyDocument: dict
 
 class IAMUser(EmbeddedModel):
     UserName: str
     UserId: str
     CreateDate: datetime
-    UserPolicies: List[UserPolicy] = []
-    AttachedPolicies: List[AttachedPolicy] = []
+    UserPolicies: List = []
+    AttachedPolicies: List = []
     Groups: List[str]
     PasswordLastUsed: Optional[datetime]
     AccessKeysLastUsed: List[AccessKey]
@@ -82,8 +81,8 @@ class Role(EmbeddedModel):
     MaxSessionDuration: Optional[int] = 3600
     PermissionsBoundary: Optional[dict] = None
     Tags: Optional[List[dict]] = []
-    AttachedPolicies: List[AttachedPolicy] = []
-    InlinePolicies: List[InlinePolicy] = []
+    AttachedPolicies: List = []
+    InlinePolicies: List = []
 
 class Asset(EmbeddedModel):
     IAM: List[IAMUser]
