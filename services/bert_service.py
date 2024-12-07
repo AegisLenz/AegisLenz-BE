@@ -29,7 +29,7 @@ class BERTService:
 
     async def _create_report(self, attack_info):
         try:
-            report_content = self.init_prompts["Report"][0]["content"].format(
+            report_content = self.init_prompts["InitReport"][0]["content"].format(
                 attack_time=attack_info["attack_time"],
                 attack_type=attack_info["attack_type"],
                 logs=attack_info["logs"]
