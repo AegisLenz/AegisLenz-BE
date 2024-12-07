@@ -4,8 +4,119 @@ from services.policy.common_utils import load_json, merge_policies, map_etc
 from services.policy.s3_policy_mapper import s3_policy_mapper
 from services.policy.ec2_policy_mapper import ec2_policy_mapper
 from services.policy.iam_policy_mapper import iam_policy_mapper
+from elasticsearch import Elasticsearch, exceptions as es_exceptions
+from datetime import datetime, timedelta, timezone
+import json
 
 load_dotenv()
+
+def fetch_all_logs_with_scroll():
+
+    es_host = os.getenv("ES_HOST")
+    es_port = os.getenv("ES_PORT")
+
+    if not es_host or not es_port:
+        raise ValueError("ES_HOST and ES_PORT are not set in the .env file.")
+
+    es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
+
+    now = datetime.now(timezone.utc)  # 현재 시간
+    past_90_days = now - timedelta(days=90)  # 90일 전 시간
+
+    # Scroll API 설정. 필요한 필드만 가져오기
+    query = {
+        "_source": [
+            "eventSource",
+            "resources.arn",
+            "userIdentity.userName",
+            "eventSource",
+            "requestParameters.vpcSet.items.vpcId",
+            "responseElements.vpcPeeringConnectionId",
+            "requestParameters.TransitGatewayMulticastDomainId",
+            "requestParameters.ServiceId",
+            "requestParameters.securityGroupIds",
+            "requestParameters.ClientVpnEndpointId",
+            "requestParameters.hostIds",
+            "requestParameters.BucketName",
+            "requestParameters.TransitGatewayAttachmentId",
+            "requestParameters.RouteTableId",
+            "requestParameters.subnetSet.items.subnetId",
+            "requestParameters.volumeSet.items.volumeId",
+            "requestParameters.imagesSet.items.imageId",
+            "requestParameters.LaunchTemplateId",
+            "requestParameters.KeyName",
+            "requestParameters.Ipv6PoolId",
+            "requestParameters.CoipPoolId",
+            "requestParameters.AllocationId",
+            "requestParameters.IamInstanceProfile.Arn",
+            "requestParameters.LocalGatewayRouteTableId",
+            "requestParameters.NetworkInterfaceId",
+            "requestParameters.filter.Dimensions.Key",
+            "requestParameters.CustomerGatewayId",
+            "requestParameters.filterSet.items.name",
+            "requestParameters.instanceId",
+            "requestParameters.instancesSet.items.instanceId",
+            "responseElements.instancesSet.items.instanceId",
+            "requestParameters.SnapshotId",
+            "requestParameters.TransitGatewayRouteTableId",
+            "requestParameters.VpnGatewayId",
+            "requestParameters.CapacityReservationId",
+            "requestParameters.HostId",
+            "requestParameters.PrefixListId",
+            "requestParameters.FlowLogId",
+            "requestParameters.ReservedInstancesId",
+            "requestParameters.SpotFleetRequestId",
+            "requestParameters.TrafficMirrorFilterId",
+            "requestParameters.TrafficMirrorSessionId",
+            "requestParameters.TrafficMirrorFilterRuleId",
+            "requestParameters.TrafficMirrorTargetId",
+            "requestParameters.InternetGatewayId",
+            "requestParameters.TransitGatewayId",
+            "requestParameters.VpnConnectionId",
+            "requestParameters.CertificateAuthorityId",
+            "requestParameters.BundleId",
+            "requestParameters.NetworkAclId",
+            "requestParameters.ReservedInstancesListingId",
+            "requestParameters.bucketName",
+            "requestParameters.key",
+            "requestParameters.keyPrefix"
+        ],
+        "query": {
+            "range": {
+                "@timestamp": {
+                    "gte": past_90_days.isoformat(),
+                    "lte": now.isoformat(),
+                    "format": "strict_date_optional_time"
+                }
+            }
+        },
+        "sort": [{"@timestamp": {"order": "asc"}}],
+        "size": 1000  # 한 번에 가져올 문서 수
+    }
+
+    try:
+        response = es.search(index="cloudtrail-logs-*", body=query, scroll="1m")
+        scroll_id = response["_scroll_id"]
+        logs = [hit["_source"] for hit in response["hits"]["hits"]]
+
+        while True:
+            scroll_response = es.scroll(scroll_id=scroll_id, scroll="1m")
+            hits = scroll_response["hits"]["hits"]
+            if not hits:
+                break
+
+            logs.extend([hit["_source"] for hit in hits])
+        return logs
+
+    except es_exceptions.ConnectionError as e:
+        print(f"Elasticsearch connection error: {str(e)}")
+        return []
+    except es_exceptions.RequestError as e:
+        print(f"Elasticsearch request error: {str(e)}")
+        return []
+    except Exception as e:
+        print(f"Error fetching logs from Elasticsearch: {str(e)}")
+        return []
 
 
 def clustering_by_username(logs):
@@ -57,14 +168,15 @@ def making_policy(log_entry):
 
 
 def extract_policy_by_cloudTrail():
-    # ES에서 가져와야 하는 로그. 일단 sample data로 대체
-    iam_policy_dir = os.getenv("IAM_POLICY_DIR_PATH")
-    file_path = os.path.join(iam_policy_dir, "src/sample_data/event_history.json")
 
-    logs = load_json(file_path).get("Records", [])
+    logs = fetch_all_logs_with_scroll()
     if not isinstance(logs, list):
         print("Error: The log file does not contain a valid list of log entries.")
-        return
+        return []
+    
+    if not logs:
+        print("Error: No logs were retrieved. The operation will be terminated.")
+        return []
     
     normal_log = []
     all_policies = []
