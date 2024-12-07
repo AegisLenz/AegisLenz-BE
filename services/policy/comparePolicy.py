@@ -3,12 +3,18 @@ import fnmatch
 def clustered_compare_policy(user_policies, clustered_policy_by_cloudtrail):
     should_remove_actions = {}
     for userName in clustered_policy_by_cloudtrail.keys():
-        should_remove_action = comparePolicy(user_policies[userName], clustered_policy_by_cloudtrail[userName])
+        if userName == "root":
+            user_policy = user_policies.get("root", {})
+        else:
+            user_policy = user_policies.get(userName, {})
+        should_remove_action = comparePolicy(user_policy, clustered_policy_by_cloudtrail[userName])
+        
         if userName not in should_remove_actions:
             should_remove_actions[userName] = []
         should_remove_actions[userName].append(should_remove_action)
 
     return should_remove_actions
+
 
 def comparePolicy(userPolicy, policy_by_cloudTrail):
     # 삭제해야 할 Action 부분 반환

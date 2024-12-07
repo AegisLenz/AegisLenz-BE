@@ -10,6 +10,25 @@ import json
 
 load_dotenv()
 
+
+def clustering_by_username(file_path):
+    logs = load_json(file_path).get("Records",[])
+    cluster = {}
+    for log in logs:
+        userIdentity = log.get("userIdentity",{})
+        if "userName" in userIdentity:
+            userName = userIdentity["userName"]
+        elif userIdentity.get("type") == "Root":
+            userName = "root"
+        else:
+            userName = "unknown"
+
+        if userName not in cluster:
+            cluster[userName] = [] 
+        cluster[userName].append(log)
+    return cluster
+
+
 def fetch_all_logs_with_scroll():
 
     es_host = os.getenv("ES_HOST")
@@ -26,10 +45,12 @@ def fetch_all_logs_with_scroll():
     # Scroll API 설정. 필요한 필드만 가져오기
     query = {
         "_source": [
+            "eventName",
             "eventSource",
-            "resources.arn",
-            "userIdentity.userName",
+            "resources",
+            "userIdentity",
             "eventSource",
+            "awsRegion",
             "requestParameters.vpcSet.items.vpcId",
             "responseElements.vpcPeeringConnectionId",
             "requestParameters.TransitGatewayMulticastDomainId",
@@ -77,7 +98,6 @@ def fetch_all_logs_with_scroll():
             "requestParameters.BundleId",
             "requestParameters.NetworkAclId",
             "requestParameters.ReservedInstancesListingId",
-            "requestParameters.bucketName",
             "requestParameters.key",
             "requestParameters.keyPrefix"
         ],
@@ -106,7 +126,8 @@ def fetch_all_logs_with_scroll():
                 break
 
             logs.extend([hit["_source"] for hit in hits])
-        return logs
+        formatted_logs = {"Records": logs}
+        return formatted_logs
 
     except es_exceptions.ConnectionError as e:
         print(f"Elasticsearch connection error: {str(e)}")
@@ -118,16 +139,6 @@ def fetch_all_logs_with_scroll():
         print(f"Error fetching logs from Elasticsearch: {str(e)}")
         return []
 
-
-def clustering_by_username(logs):
-    cluster = {}
-    for log in logs:
-        user_identity = log.get("userIdentity", {})
-        user_name = user_identity.get("userName")
-        if user_name not in cluster:
-            cluster[user_name] = []
-        cluster[user_name].append(log)
-    return cluster
 
 
 def making_policy(log_entry):
