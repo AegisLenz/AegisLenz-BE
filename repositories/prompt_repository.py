@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from models.prompt_model import PromptSession, PromptChat
 from database.redis_driver import RedisDriver
 from database.mongodb_driver import mongodb
-from services.prompt.query_parser import convert_dates_in_query, extract_values
+from services.prompt.query_parser import convert_dates_in_query, parse_db_response, parse_es_response
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -98,32 +98,41 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def find_es_document(self, es_query) -> list:
+    async def find_es_document(self, es_query: str) -> list:
         try:
+            logger.info("Received ES query: %s", es_query)
+            
             query_result = await self.es_client.search(
-                index=os.getenv("INDEX_NAME"),
+                index=os.getenv("ES_INDEX"),
                 body=es_query
             )
-            return query_result['hits']['hits']
+            logger.info("Raw query result: %s", query_result)
+
+            result = parse_es_response(query_result)
+            logger.info("Final extracted result: %s", result)
+
+            return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def find_db_document(self, db_query) -> list:
+    async def find_db_document(self, db_query: str) -> list:
         try:
-            logger.debug("Received DB query: %s", db_query)
+            logger.info("Received DB query: %s", db_query)
+            
             parsed_query = json.loads(db_query)
-
             processed_query = convert_dates_in_query(parsed_query)
             logger.info("Processed query after date conversion: %s", processed_query)
 
-            query_results = await self.mongodb_client.command(processed_query)
-            logger.info("Raw query results: %s", query_results)
+            query_result = await self.mongodb_client.command(processed_query)
+            logger.info("Raw query result: %s", query_result)
 
-            first_batch = query_results.get("cursor", {}).get("firstBatch", [])
-            results = extract_values(first_batch)
-            logger.info("Final extracted results: %s", results)
+            first_batch = query_result.get("cursor", {}).get("firstBatch", [])
+            logger.info(type(first_batch))
+            result = parse_db_response(first_batch)
+            logger.info(type(result))
+            logger.info("Final extracted result: %s", result)
 
-            return results
+            return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     

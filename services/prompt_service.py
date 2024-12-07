@@ -80,7 +80,7 @@ class PromptService:
         persona_type = responss_data.get("topics")
         return persona_type
 
-    async def _es_persona(self, query) -> Dict[str, Any]:
+    async def _es_persona(self, query) -> dict[str, Any]:
         es_prompt = self.init_prompts["ES"]
         es_prompt.append(query)
         es_query = await self.gpt_service.get_response(es_prompt)
@@ -90,7 +90,7 @@ class PromptService:
         else:
             raise HTTPException(status_code=500, detail="Unable to generate a valid Elasticsearch query.")
 
-    async def _db_persona(self, query) -> Dict[str, Any]:
+    async def _db_persona(self, query) -> dict[str, Any]:
         db_prompt = self.init_prompts["DB"]
         db_prompt.append(query)
         db_query = await self.gpt_service.get_response(db_prompt)
@@ -158,7 +158,7 @@ class PromptService:
                 es_query, es_result = await self._es_persona(query)
                 yield self._create_stream_response(type="ESQuery", data=es_query)
                 yield self._create_stream_response(type="ESResult", data=es_result)
-                persona_response = json.dumps({"es_query": es_query}, ensure_ascii=False)
+                persona_response = json.dumps({"es_query": es_query, "es_result": es_result}, ensure_ascii=False)
             elif persona_type == "DB":
                 await self.asset_service.update_asset(user_id)  # 자산 업데이트
                 db_query, db_result = await self._db_persona(query)
