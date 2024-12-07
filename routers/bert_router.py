@@ -78,17 +78,21 @@ def normalize_key(key: str) -> str:
     """
     return key.strip().lower().replace(" ", "").replace("-", "")
 
-async def fetch_logs_from_elasticsearch():
+async def fetch_logs_from_elasticsearch(last_timestamp=None):
     """
-    Fetch the last 5 logs from Elasticsearch.
+    Fetch the last 5 logs from Elasticsearch since the given timestamp.
     """
     try:
+        query = {"match_all": {}}
+        if last_timestamp:
+            query = {"range": {"@timestamp": {"gt": last_timestamp}}}
+
         response = es.search(
             index=es_index,
             body={
                 "size": 5,
                 "sort": [{"@timestamp": {"order": "desc"}}],
-                "query": {"match_all": {}}
+                "query": query
             }
         )
         logs = [hit["_source"] for hit in response["hits"]["hits"]]
@@ -107,69 +111,61 @@ async def fetch_logs_from_elasticsearch():
 @router.get("/events", response_model=PredictionSchema)
 async def sse_events(bert_service: BERTService = Depends(BERTService)):
     async def event_generator():
+        last_timestamp = None  # 마지막 처리된 타임스탬프
         while True:
             try:
-                logs = await fetch_logs_from_elasticsearch()
+                logs = await fetch_logs_from_elasticsearch(last_timestamp)
                 if logs:
+                    last_timestamp = logs[-1].get("@timestamp")
+
                     for log in logs:
                         source_ip = log.get("sourceIPAddress")
-                        if source_ip:
-                            try:
-                                await redis_driver.set_log_queue(source_ip, log)
-                                logger.info(f"Log for {source_ip} added to Redis.")
-                            except Exception as redis_error:
-                                logger.error(f"Error adding log to Redis: {str(redis_error)}")
-                                continue
+                        if source_ip and not await redis_driver.is_processed(source_ip):
+                            await redis_driver.set_log_queue(source_ip, log)
+                            logger.info(f"Log for {source_ip} added to Redis.")
 
-                for source_ip in {log.get("sourceIPAddress") for log in logs if log.get("sourceIPAddress")}:
-                    try:
-                        buffer = await redis_driver.get_log_queue(source_ip)
-                        if len(buffer) == 5:
-                            prediction = await bert_service.predict_attack(buffer)
-                            
-                            logger.info(f"Raw prediction value for {source_ip}: {prediction}")
-                            normalized_prediction = normalize_key(str(prediction))
-                            logger.info(f"Normalized prediction: {normalized_prediction}")
+                            buffer = await redis_driver.get_log_queue(source_ip)
+                            if len(buffer) == 5:
+                                prediction = await bert_service.predict_attack(buffer)
+                                logger.info(f"Prediction for {source_ip}: {prediction}")
 
-                            tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
-                            logger.info(f"Mapped tactic: {tactic}")
+                                normalized_prediction = normalize_key(str(prediction))
+                                tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
+                                logger.info(f"Mapped tactic: {tactic}")
 
-                            if tactic == "Unknown Tactic":
-                                logger.warning(f"Mapping failed for prediction: {prediction} (normalized: {normalized_prediction})")
+                                if prediction != 'No Attack':
+                                    log_id = f"{source_ip}_{log.get('@timestamp', datetime.now().isoformat())}"
+                                    attack_document = {
+                                        **log,
+                                        "mitreAttackTactic": tactic,
+                                        "mitreAttackTechnique": str(prediction),
+                                        "attack_time": datetime.now(timezone(timedelta(hours=9))).isoformat()
+                                    }
 
-                            if prediction != 'No Attack':
-                                attack_document = {
-                                    **log,
-                                    "mitreAttackTactic": tactic,
-                                    "mitreAttackTechnique": str(prediction),
-                                    "attack_time": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
-                                }
+                                    # Elasticsearch에 저장 (중복 방지)
+                                    es.index(index="cloudtrail-logs", id=log_id, body=attack_document)
+                                    logger.info(f"Document saved to Elasticsearch: {attack_document}")
 
-                                # BERT 결과 Elasticsearch에 저장
-                                es.index(index="cloudtrail-logs", body=attack_document)
-                                logger.info(f"Document saved to Elasticsearch: {attack_document}")
+                                    # 사용자 정보 추출 및 후속 처리
+                                    user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
+                                    attack_info = {
+                                        "attack_time": attack_document["attack_time"],
+                                        "attack_type": [tactic],
+                                        "logs": json.dumps(attack_document)
+                                    }
+                                    try:
+                                        prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
+                                        logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
+                                    except Exception as e:
+                                        logger.error(f"Error in process_after_detection for {user_id}: {e}")
 
-                                user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
-                                attack_info = {
-                                    "attack_time": attack_document["attack_time"],
-                                    "attack_type": [tactic],
-                                    "logs": json.dumps(attack_document)
-                                }
-                                try:
-                                    prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
-                                    logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
-                                except Exception as e:
-                                    logger.error(f"Error in process_after_detection for {user_id}: {e}")
-                                yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
+                                    yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
 
-                            await redis_driver.log_prediction(source_ip, {"prediction": str(prediction)})
-                    except Exception as e:
-                        logger.error(f"Error processing prediction for {source_ip}: {str(e)}")
-                        continue
+                                    await redis_driver.mark_as_processed(source_ip)
             except Exception as e:
                 logger.error(f"Error in event generator: {str(e)}")
                 yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-            
+
             await asyncio.sleep(5)
-    
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")

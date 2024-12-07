@@ -4,6 +4,7 @@ import asyncio
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from common.logging import setup_logger
+
 logger = setup_logger()
 
 load_dotenv()
@@ -23,7 +24,6 @@ class RedisDriver:
         try:
             key = f"logs:{source_ip}"
             await self.redis_client.rpush(key, json.dumps(log_data))
-            # 큐의 길이가 max_logs를 초과하면 가장 오래된 항목을 제거
             if await self.redis_client.llen(key) > max_logs:
                 await self.redis_client.lpop(key)
         except Exception as e:
@@ -41,6 +41,27 @@ class RedisDriver:
         except Exception as e:
             logger.error(f"Error getting log queue for IP {source_ip}: {e}")
             return []
+
+    async def mark_as_processed(self, source_ip):
+        """
+        특정 IP의 로그를 처리 완료로 표시.
+        """
+        try:
+            key = f"processed:{source_ip}"
+            await self.redis_client.set(key, "true", ex=3600)
+        except Exception as e:
+            logger.error(f"Error marking logs as processed for IP {source_ip}: {e}")
+
+    async def is_processed(self, source_ip):
+        """
+        특정 IP의 로그가 처리 완료인지 확인.
+        """
+        try:
+            key = f"processed:{source_ip}"
+            return await self.redis_client.exists(key)
+        except Exception as e:
+            logger.error(f"Error checking processed status for IP {source_ip}: {e}")
+            return False
 
     async def log_prediction(self, source_ip, prediction_data):
         """
