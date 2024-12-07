@@ -93,7 +93,8 @@ async def fetch_logs_from_elasticsearch(last_timestamp=None):
                 "size": 5,
                 "sort": [{"@timestamp": {"order": "desc"}}],
                 "query": query
-            }
+            },
+            timeout="30s"
         )
         logs = [hit["_source"] for hit in response["hits"]["hits"]]
         logger.info(f"Fetched {len(logs)} logs from Elasticsearch.")
@@ -111,7 +112,10 @@ async def fetch_logs_from_elasticsearch(last_timestamp=None):
 @router.get("/events", response_model=PredictionSchema)
 async def sse_events(bert_service: BERTService = Depends(BERTService)):
     async def event_generator():
-        last_timestamp = None  # 마지막 처리된 타임스탬프
+        last_timestamp = None
+        error_count = 0
+        max_retries = 3
+        
         while True:
             try:
                 logs = await fetch_logs_from_elasticsearch(last_timestamp)
@@ -163,9 +167,15 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
 
                                     await redis_driver.mark_as_processed(source_ip)
             except Exception as e:
-                logger.error(f"Error in event generator: {str(e)}")
+                error_count += 1
+                logger.error(f"Error in event generator (attempt {error_count}/{max_retries}): {str(e)}")
+                if error_count >= max_retries:
+                    logger.critical("Max retries reached, stopping event generator")
+                    break
                 yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-
-            await asyncio.sleep(5)
+                await asyncio.sleep(10)
+            else:
+                error_count = 0
+                await asyncio.sleep(5)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
