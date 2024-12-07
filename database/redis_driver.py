@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+from typing import Optional, List, Dict, Any
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from common.logging import setup_logger
@@ -25,7 +26,7 @@ class RedisDriver:
         self.redis_url = f'redis://{REDIS_HOST}:{REDIS_PORT}'
         self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
 
-    async def _execute_with_retry(self, operation: callable, *args, **kwargs):
+    async def _execute_with_retry(self, operation: callable, *args, **kwargs) -> Optional[Any]:
         """공통 에러 처리 및 재시도 로직"""
         for attempt in range(MAX_RETRY_ATTEMPTS):
             try:
@@ -47,46 +48,42 @@ class RedisDriver:
 
         await self._execute_with_retry(_set_operation)
 
-    async def get_log_queue(self, source_ip):
-        """
-        특정 IP의 Redis 큐에 쌓인 로그를 가져오는 함수.
-        """
-        try:
-            key = f"logs:{source_ip}"
+    async def get_log_queue(self, source_ip: str) -> List[Dict]:
+        """특정 IP의 Redis 큐에 쌓인 로그를 가져오는 함수"""
+        key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
+        
+        async def _get_operation():
             logs = await self.redis_client.lrange(key, 0, -1)
             return [json.loads(log) for log in logs]
-        except Exception as e:
-            logger.error(f"Error getting log queue for IP {source_ip}: {e}")
-            return []
 
-    async def mark_as_processed(self, source_ip):
-        """
-        특정 IP의 로그를 처리 완료로 표시.
-        """
-        try:
-            key = f"processed:{source_ip}"
+        result = await self._execute_with_retry(_get_operation)
+        return result if result is not None else []
+
+    async def mark_as_processed(self, source_ip: str) -> None:
+        """특정 IP의 로그를 처리 완료로 표시"""
+        key = f"{REDIS_KEY_PREFIX['PROCESSED']}:{source_ip}"
+        
+        async def _mark_operation():
             await self.redis_client.set(key, "true", ex=3600)
-        except Exception as e:
-            logger.error(f"Error marking logs as processed for IP {source_ip}: {e}")
 
-    async def is_processed(self, source_ip):
-        """
-        특정 IP의 로그가 처리 완료인지 확인.
-        """
-        try:
-            key = f"processed:{source_ip}"
+        await self._execute_with_retry(_mark_operation)
+
+    async def is_processed(self, source_ip: str) -> bool:
+        """특정 IP의 로그가 처리 완료인지 확인"""
+        key = f"{REDIS_KEY_PREFIX['PROCESSED']}:{source_ip}"
+        
+        async def _check_operation():
             return await self.redis_client.exists(key)
-        except Exception as e:
-            logger.error(f"Error checking processed status for IP {source_ip}: {e}")
-            return False
 
-    async def log_prediction(self, source_ip, prediction_data):
-        """
-        공격 예측 결과를 Redis에 저장하는 함수.
-        """
-        try:
-            key = f"prediction:{source_ip}"
+        result = await self._execute_with_retry(_check_operation)
+        return bool(result) if result is not None else False
+
+    async def log_prediction(self, source_ip: str, prediction_data: dict) -> None:
+        """공격 예측 결과를 Redis에 저장하는 함수"""
+        key = f"{REDIS_KEY_PREFIX['PREDICTION']}:{source_ip}"
+        
+        async def _log_operation():
             await self.redis_client.set(key, json.dumps(prediction_data), ex=3600)
             logger.info(f"Logged prediction for IP {source_ip}: {prediction_data}")
-        except Exception as e:
-            logger.error(f"Error logging prediction for IP {source_ip}: {e}")
+
+        await self._execute_with_retry(_log_operation)
