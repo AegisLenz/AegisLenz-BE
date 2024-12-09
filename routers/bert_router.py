@@ -125,6 +125,18 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                     try:
                                         es_service.save_document(attack_index_name, log_id, attack_document)
                                         logger.info(f"Document saved to Elasticsearch: {log_id}")
+
+                                        user_id = "1"
+                                        attack_info = {
+                                            "attack_time": attack_document["attack_time"],
+                                            "attack_type": [tactic],
+                                            "logs": json.dumps(attack_document)
+                                        }
+                                        try:
+                                            prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
+                                            logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
+                                        except Exception as e:
+                                            logger.error(f"Error in process_after_detection for user {user_id}: {e}")
                                     except ElasticsearchServiceError as e:
                                         logger.error(f"Failed to save document for {source_ip}: {str(e)}")
                                     yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
