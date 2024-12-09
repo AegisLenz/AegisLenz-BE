@@ -21,6 +21,8 @@ logger = setup_logger()
 es_host = os.getenv("ES_HOST")
 es_port = os.getenv("ES_PORT")
 es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
+attack_index_name = "cloudtrail-attack-logs"
+
 es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
 
 # Redis 드라이버 설정
@@ -83,9 +85,11 @@ async def fetch_logs_from_elasticsearch(last_timestamp=None):
     Fetch the last 5 logs from Elasticsearch since the given timestamp.
     """
     try:
-        query = {"match_all": {}}
-        if last_timestamp:
-            query = {"range": {"@timestamp": {"gt": last_timestamp}}}
+        if not last_timestamp:
+            logger.error("No timestamp provided, skipping log fetch to prevent processing all logs.")
+            return []
+
+        query = {"range": {"@timestamp": {"gt": last_timestamp}}}
 
         response = es.search(
             index=es_index,
@@ -142,16 +146,16 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                     attack_document = {
                                         **log,
                                         "mitreAttackTactic": tactic,
-                                        "mitreAttackTechnique": str(prediction),
+                                        "mitreAttackTechnique": str(normalized_prediction),
                                         "attack_time": datetime.now(timezone(timedelta(hours=9))).isoformat()
                                     }
 
                                     # Elasticsearch에 저장 (중복 방지)
-                                    es.index(index="cloudtrail-logs", id=log_id, body=attack_document)
-                                    logger.info(f"Document saved to Elasticsearch: {attack_document}")
+                                    es.index(index=attack_index_name, id=log_id, body=attack_document)
+                                    logger.info(f"Document saved to Elasticsearch in index '{attack_index_name}': {attack_document}")
 
                                     # 사용자 정보 추출 및 후속 처리
-                                    user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
+                                    user_id = "1"
                                     attack_info = {
                                         "attack_time": attack_document["attack_time"],
                                         "attack_type": [tactic],
@@ -161,7 +165,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                         prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
                                         logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
                                     except Exception as e:
-                                        logger.error(f"Error in process_after_detection for {user_id}: {e}")
+                                        logger.error(f"Error in process_after_detection for user {user_id}: {e}")
 
                                     yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
 
