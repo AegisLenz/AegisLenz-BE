@@ -6,32 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from services.bert_service import BERTService
 from schemas.bert_schema import PredictionSchema
-from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from database.redis_driver import RedisDriver
+from services.es_service import ElasticsearchService, ElasticsearchServiceError
 from common.logging import setup_logger
 
-# 환경 변수 로드
 load_dotenv()
-
-# 로거 설정
 logger = setup_logger()
-
-# Elasticsearch 클라이언트 설정
-es_host = os.getenv("ES_HOST")
-es_port = os.getenv("ES_PORT")
-es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
-attack_index_name = "cloudtrail-attack-logs"
-
-es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
-
-# Redis 드라이버 설정
 redis_driver = RedisDriver()
+es_service = ElasticsearchService()
 
-# API 라우터 설정
 router = APIRouter(prefix="/bert", tags=["bert"])
 
-# JSON 파일 경로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
@@ -39,12 +25,12 @@ COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
 TACTICS_MAPPING_FILE = os.path.join(COMMON_DIR, "tactics_mapping.json")
 ELASTICSEARCH_MAPPING_FILE = os.path.join(COMMON_DIR, "elasticsearch_mapping.json")
 
-# JSON 데이터 로드 함수
+attack_index_name = "cloudtrail-attack-logs"
+
 def load_json(file_path):
     try:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found at {file_path}")
-        
         with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             logger.info(f"Successfully loaded {file_path}")
@@ -53,96 +39,81 @@ def load_json(file_path):
         logger.error(f"Failed to load {file_path}: {e}")
         return {}
 
-# JSON 데이터 로드
 tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 elasticsearch_mapping = load_json(ELASTICSEARCH_MAPPING_FILE)
 
-def initialize_elasticsearch_mapping():
-    """
-    Set up Elasticsearch mapping (schema).
-    """
-    index_name = os.getenv("ES_INDEX", "cloudtrail-logs")
-
-    try:
-        if not es.indices.exists(index=index_name):
-            es.indices.create(index=index_name, body=elasticsearch_mapping)
-            logger.info(f"Created and applied mapping to Elasticsearch index '{index_name}'.")
-        else:
-            logger.info(f"Elasticsearch index '{index_name}' already exists.")
-    except Exception as e:
-        logger.error(f"Error setting up Elasticsearch mapping: {e}")
-
-initialize_elasticsearch_mapping()
-
 def normalize_key(key: str) -> str:
     """
-    Normalize a key to maintain consistency in mappings.
+    키를 정규화하여 일관된 매핑 사용을 위해 사용.
     """
     return key.strip().lower().replace(" ", "").replace("-", "")
 
-async def fetch_logs_from_elasticsearch(last_timestamp=None):
+async def fetch_logs_from_elasticsearch(es_service, last_timestamp=None, last_sort_key=None):
     """
-    Fetch the last 5 logs from Elasticsearch since the given timestamp.
+    Elasticsearch에서 주어진 타임스탬프 이후의 로그를 가져오는 함수.
     """
+    if not last_timestamp:
+        logger.error("No timestamp provided, skipping log fetch to prevent processing all logs.")
+        return [], None
+
+    query = {"range": {"@timestamp": {"gt": last_timestamp}}}
+    body = {
+        "size": 5,
+        "sort": [{"@timestamp": "asc"}],
+        "query": query,
+    }
+    if last_sort_key:
+        body["search_after"] = [last_sort_key]
+
     try:
-        if not last_timestamp:
-            logger.error("No timestamp provided, skipping log fetch to prevent processing all logs.")
-            return []
-
-        query = {"range": {"@timestamp": {"gt": last_timestamp}}}
-
-        response = es.search(
-            index=es_index,
-            body={
-                "size": 5,
-                "sort": [{"@timestamp": {"order": "desc"}}],
-                "query": query
-            },
-            timeout="30s"
+        logs = es_service.search_logs(
+            index=os.getenv("ES_INDEX", "cloudtrail-logs-*"),
+            query=query,
+            sort_field="@timestamp",
+            sort_order="asc"
         )
-        logs = [hit["_source"] for hit in response["hits"]["hits"]]
-        logger.info(f"Fetched {len(logs)} logs from Elasticsearch.")
-        return logs
-    except es_exceptions.ConnectionError as e:
-        logger.error(f"Elasticsearch connection error: {str(e)}")
-        return []
-    except es_exceptions.RequestError as e:
-        logger.error(f"Elasticsearch request error: {str(e)}")
-        return []
-    except Exception as e:
+        return logs, None if not logs else logs[-1].get("sort")
+    except ElasticsearchServiceError as e:
         logger.error(f"Error fetching logs from Elasticsearch: {str(e)}")
-        return []
+        return [], None
 
 @router.get("/events", response_model=PredictionSchema)
 async def sse_events(bert_service: BERTService = Depends(BERTService)):
     async def event_generator():
         last_timestamp = None
+        last_sort_key = None
         error_count = 0
         max_retries = 3
-        
+
         while True:
             try:
-                logs = await fetch_logs_from_elasticsearch(last_timestamp)
+                logs, last_sort_key = await fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_key)
                 if logs:
                     last_timestamp = logs[-1].get("@timestamp")
 
                     for log in logs:
-                        source_ip = log.get("sourceIPAddress")
-                        if source_ip and not await redis_driver.is_processed(source_ip):
-                            await redis_driver.set_log_queue(source_ip, log)
-                            logger.info(f"Log for {source_ip} added to Redis.")
+                        source_ip = log.get("sourceIPAddress", "unknown")
+                        if source_ip == "unknown":
+                            logger.warning("Log without sourceIPAddress encountered.")
+                            continue
 
+                        try:
+                            if await redis_driver.is_processed(source_ip):
+                                logger.info(f"Log for {source_ip} already processed. Skipping.")
+                                continue
+                        except Exception as e:
+                            logger.error(f"Error checking processed status for {source_ip}: {str(e)}")
+                            continue
+
+                        try:
+                            await redis_driver.set_log_queue(source_ip, log)
                             buffer = await redis_driver.get_log_queue(source_ip)
                             if len(buffer) == 5:
                                 prediction = await bert_service.predict_attack(buffer)
-                                logger.info(f"Prediction for {source_ip}: {prediction}")
-
                                 normalized_prediction = normalize_key(str(prediction))
                                 tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
-                                logger.info(f"Mapped tactic: {tactic}")
 
                                 if prediction != 'No Attack':
-                                    log_id = f"{source_ip}_{log.get('@timestamp', datetime.now().isoformat())}"
                                     attack_document = {
                                         **log,
                                         "mitreAttackTactic": tactic,
@@ -150,26 +121,20 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                         "attack_time": datetime.now(timezone(timedelta(hours=9))).isoformat()
                                     }
 
-                                    # Elasticsearch에 저장 (중복 방지)
-                                    es.index(index=attack_index_name, id=log_id, body=attack_document)
-                                    logger.info(f"Document saved to Elasticsearch in index '{attack_index_name}': {attack_document}")
-
-                                    # 사용자 정보 추출 및 후속 처리
-                                    user_id = "1"
-                                    attack_info = {
-                                        "attack_time": attack_document["attack_time"],
-                                        "attack_type": [tactic],
-                                        "logs": json.dumps(attack_document)
-                                    }
+                                    log_id = f"{source_ip}_{log.get('@timestamp', datetime.now().isoformat())}"
                                     try:
-                                        prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
-                                        logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
-                                    except Exception as e:
-                                        logger.error(f"Error in process_after_detection for user {user_id}: {e}")
-
+                                        es_service.save_document(attack_index_name, log_id, attack_document)
+                                        logger.info(f"Document saved to Elasticsearch: {log_id}")
+                                    except ElasticsearchServiceError as e:
+                                        logger.error(f"Failed to save document for {source_ip}: {str(e)}")
                                     yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
-
                                     await redis_driver.mark_as_processed(source_ip)
+                        except Exception as e:
+                            logger.error(f"Error processing log for {source_ip}: {str(e)}")
+                else:
+                    logger.info("No new logs fetched. Sleeping briefly.")
+                    await asyncio.sleep(1)
+
             except Exception as e:
                 error_count += 1
                 logger.error(f"Error in event generator (attempt {error_count}/{max_retries}): {str(e)}")
@@ -180,6 +145,6 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                 await asyncio.sleep(10)
             else:
                 error_count = 0
-                await asyncio.sleep(5)
+                await asyncio.sleep(5 if not logs else 0)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
