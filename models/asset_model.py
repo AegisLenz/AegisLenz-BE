@@ -1,4 +1,4 @@
-from odmantic import Model, EmbeddedModel
+from odmantic import Model, EmbeddedModel, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -8,27 +8,15 @@ class AccessKey(EmbeddedModel):
     Status: str
     LastUsedDate: Optional[datetime]
 
-# class UserPolicy(EmbeddedModel):
-#     PolicyName: str
-#     PolicyDocument: dict
-
-# class AttachedPolicy(EmbeddedModel):
-#     PolicyName: str
-#     PolicyDocument: dict
-
-# class InlinePolicy(EmbeddedModel):
-#     PolicyName: str
-#     PolicyDocument: dict
-
 class IAMUser(EmbeddedModel):
     UserName: str
     UserId: str
     CreateDate: datetime
-    UserPolicies: List = []
-    AttachedPolicies: List = []
-    Groups: List[str]
+    UserPolicies: List[dict] = Field(default_factory=list)
+    AttachedPolicies: List[dict] = Field(default_factory=list)
+    Groups: List[str] = Field(default_factory=list)
     PasswordLastUsed: Optional[datetime]
-    AccessKeysLastUsed: List[AccessKey]
+    AccessKeysLastUsed: List[AccessKey] = Field(default_factory=list)
     LastUpdated: Optional[datetime]
 
 class EBSVolume(EmbeddedModel):
@@ -42,7 +30,7 @@ class EBSVolume(EmbeddedModel):
     AvailabilityZone: str
     State: str
     CreateTime: Optional[datetime]
-    Attachments: List[str]
+    Attachments: List[str] = Field(default_factory=list)
     Encrypted: bool
 
 class EC2(EmbeddedModel):
@@ -54,10 +42,10 @@ class EC2(EmbeddedModel):
     PrivateIpAddress: Optional[str]
     VpcId: Optional[str]
     SubnetId: Optional[str]
-    SecurityGroups: List[dict]
-    Tags: List[dict]
+    SecurityGroups: List[dict] = Field(default_factory=list)
+    Tags: List[dict] = Field(default_factory=list)
     EbsVolumes: List[EBSVolume]
-    NetworkInterfaces: List[dict]
+    NetworkInterfaces: List[dict] = Field(default_factory=list)
     IamInstanceProfile: Optional[dict]
 
 class S3_Bucket(EmbeddedModel):
@@ -76,19 +64,19 @@ class Role(EmbeddedModel):
     RoleId: str
     Arn: str
     CreateDate: datetime
-    AssumeRolePolicyDocument: dict
+    AssumeRolePolicyDocument: dict = Field(default_factory=dict)
     Description: Optional[str] = ""
     MaxSessionDuration: Optional[int] = 3600
     PermissionsBoundary: Optional[dict] = None
     Tags: Optional[List[dict]] = []
-    AttachedPolicies: List = []
-    InlinePolicies: List = []
+    AttachedPolicies: List[dict] = Field(default_factory=list)
+    InlinePolicies: List[dict] = Field(default_factory=list)
 
 class Asset(EmbeddedModel):
-    IAM: List[IAMUser]
-    Role: List[Role]
-    EC2: List[EC2]
-    S3: List[S3_Bucket]
+    IAM: List[IAMUser] = Field(default_factory=list)
+    Role: List[Role] = Field(default_factory=list)
+    EC2: List[EC2] = Field(default_factory=list)
+    S3: List[S3_Bucket] = Field(default_factory=list)
 
 class UserAsset(Model):
     user_id: str
