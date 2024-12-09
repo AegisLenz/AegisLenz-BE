@@ -2,7 +2,7 @@ import json
 from bson import json_util
 from fastapi import HTTPException, Depends
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 from services.gpt_service import GPTService
 from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
@@ -71,6 +71,12 @@ class PromptService:
             least_privilege_policy=least_privilege_policy,
             init_recommend_questions=recommend_questions
         )
+
+    async def _load_chat_history(self, prompt_session_id: str) -> list:
+        find_history = await self.prompt_repository.get_prompt_chats(prompt_session_id)
+        find_history = find_history[-8:]
+        return [{"role": h.role, "content": f"{h.content} 생성된 쿼리: {h.query}" if h.query else h.content}
+                for h in find_history]
 
     async def _classify_persona(self, user_query, history: list) -> str:
         classify_prompt = history
@@ -153,14 +159,9 @@ class PromptService:
         )
         user_query = {"role": "user", "content": user_content}
         query = None
+        history = await self._load_chat_history(prompt_session_id)  # 이전 대화 내역 가져오기
 
-        # 이전 대화 내역 가져오기
-        find_history = await self.prompt_repository.get_prompt_chats(prompt_session_id)
-        find_history = find_history[-8:]
-        history = [{"role": h.role, "content": f"{h.content} 생성된 쿼리: {h.query}" if h.query else h.content} for h in find_history]
-        logger.info(history)
-
-        # 분류기 페르소나 결과
+        # 분류기 페르소나 로직 수행
         try:
             persona_type = await self._classify_persona(user_query, history)
             logger.info(f"Persona type classified: {persona_type}")
@@ -180,50 +181,49 @@ class PromptService:
                 yield self._create_stream_response(type="DBQuery", data=query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
                 persona_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
-            
+
             summary_prompt = self.init_prompts["Summary"]
             summary_prompt.append({
                 "role": "user",
                 "content": f"{user_content}\n{persona_type} 응답: {persona_response}"
             })
-            
+
             # 응답 페르소나
             assistant_response = ""
             async for chunk in self.gpt_service.stream_response(summary_prompt):
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Policy":
-            # 최소권한정책 가져오기
             least_privilege_policy = None
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
-            if prompt_session:
-                attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
-                if attack_detection and attack_detection.least_privilege_policy:
-                    least_privilege_policy = attack_detection.least_privilege_policy.get("least_privilege_policy")
-                    if not least_privilege_policy:
-                        raise HTTPException(
-                            status_code=404, 
-                            detail=f"Least privilege policy not found in attack detection with ID: {prompt_session.attack_detection_id}"
-                        )
-                else:
-                    raise HTTPException(
-                        status_code=404, 
-                        detail=f"Attack detection data missing or incomplete for ID: {prompt_session.attack_detection_id}"
-                    )
-            else:
+            if not prompt_session:
                 raise HTTPException(
-                    status_code=404, 
+                    status_code=404,
                     detail=f"Prompt session with ID: {prompt_session_id} does not exist or could not be retrieved."
                 )
 
-            # 사용자 정책 가져오기
-            original_policy = await self.user_repository.get_user_policies(user_id)
-            filtered_original_policy = filter_original_policy(original_policy, least_privilege_policy)
+            attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+            if not attack_detection:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Attack detection data missing or incomplete for ID: {prompt_session.attack_detection_id}"
+                )
+
+            least_privilege_policy_data = attack_detection.least_privilege_policy
+            if not least_privilege_policy_data:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Least privilege policy not found in attack detection with ID: {prompt_session.attack_detection_id}"
+                )
+
+            least_privilege_policy = least_privilege_policy_data.get("least_privilege_policy")
+            original_policy = least_privilege_policy_data.get("original_policy")
 
             policy_content = self.init_prompts["Policy"][0]["content"].format(
-                original_policy=json.dumps(filtered_original_policy, indent=2),
+                original_policy=json.dumps(filter_original_policy(original_policy, least_privilege_policy), indent=2),
                 least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
             )
+
             summary_prompt = history
             summary_prompt.append({"role": "system", "content": policy_content})
             summary_prompt.append({"role": "user", "content": user_question})
@@ -260,13 +260,9 @@ class PromptService:
 
             await self.prompt_repository.update_recommend_data(prompt_session_id, recomm_history, pre_recomm_questions)
 
-        # 스트리밍 완료 메시지 전송
-        yield self._create_stream_response(status="complete")
+        yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
 
-        # 타이틀 생성
-        await self._create_prompt_title(prompt_session_id, user_question)
-
-        # DB에 채팅 내역 저장
+        await self._create_prompt_title(prompt_session_id, user_question)  # 프롬프트 타이틀 생성
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
         await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
 
