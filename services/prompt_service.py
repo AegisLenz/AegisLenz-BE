@@ -72,17 +72,21 @@ class PromptService:
             init_recommend_questions=recommend_questions
         )
 
-    async def _classify_persona(self, query) -> str:
-        classify_prompt = self.init_prompts["Classify"]
-        classify_prompt.append(query)
+    async def _classify_persona(self, user_query, history: list) -> str:
+        classify_prompt = history
+        classify_prompt.append(self.init_prompts["Classify"][0])
+        classify_prompt.append(user_query)
+
         response = await self.gpt_service.get_response(classify_prompt)
         responss_data = json.loads(response)
         persona_type = responss_data.get("topics")
         return persona_type
 
-    async def _es_persona(self, query) -> dict[str, Any]:
-        es_prompt = self.init_prompts["ES"]
-        es_prompt.append(query)
+    async def _es_persona(self, user_query, history: list) -> dict[str, Any]:
+        es_prompt = history
+        es_prompt.append(self.init_prompts["ES"][0])
+        es_prompt.append(user_query)
+
         es_query = await self.gpt_service.get_response(es_prompt)
         if es_query:
             es_result = await self.prompt_repository.find_es_document(es_query)
@@ -90,9 +94,13 @@ class PromptService:
         else:
             raise HTTPException(status_code=500, detail="Unable to generate a valid Elasticsearch query.")
 
-    async def _db_persona(self, query) -> dict[str, Any]:
-        db_prompt = self.init_prompts["DB"]
-        db_prompt.append(query)
+    async def _db_persona(self, user_query, history: list, user_id: str) -> dict[str, Any]:
+        await self.asset_service.update_asset(user_id)  # 자산 업데이트
+
+        db_prompt = history
+        db_prompt.append(self.init_prompts["DB"][0])
+        db_prompt.append(user_query)
+
         db_query = await self.gpt_service.get_response(db_prompt)
         if db_query:
             db_result = await self.prompt_repository.find_db_document(db_query)
@@ -137,16 +145,24 @@ class PromptService:
         user_content = (
             "현재 날짜와 시간은 {time}입니다. "
             "이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {question} "
-            "답변은 반드시 json 형식으로 나옵니다."
+            "답변은 반드시 json 형식으로 나옵니다. "
+            "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
         ).format(
             time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             question=user_question
         )
-        query = {"role": "user", "content": user_content}
+        user_query = {"role": "user", "content": user_content}
+        query = None
+
+        # 이전 대화 내역 가져오기
+        find_history = await self.prompt_repository.get_prompt_chats(prompt_session_id)
+        find_history = find_history[-8:]
+        history = [{"role": h.role, "content": f"{h.content} 생성된 쿼리: {h.query}" if h.query else h.content} for h in find_history]
+        logger.info(history)
 
         # 분류기 페르소나 결과
         try:
-            persona_type = await self._classify_persona(query)
+            persona_type = await self._classify_persona(user_query, history)
             logger.info(f"Persona type classified: {persona_type}")
         except Exception as e:
             logger.error(f"Error during persona classification: {e}")
@@ -155,16 +171,15 @@ class PromptService:
         # 분류기 결과에 따른 페르소나 로직 수행
         if persona_type in ["ES", "DB"]:
             if persona_type == "ES":
-                es_query, es_result = await self._es_persona(query)
-                yield self._create_stream_response(type="ESQuery", data=es_query)
-                yield self._create_stream_response(type="ESResult", data=es_result)
-                persona_response = json.dumps({"es_query": es_query, "es_result": es_result}, ensure_ascii=False)
+                query, query_result = await self._es_persona(user_query, history)
+                yield self._create_stream_response(type="ESQuery", data=query)
+                yield self._create_stream_response(type="ESResult", data=query_result)
+                persona_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
             elif persona_type == "DB":
-                await self.asset_service.update_asset(user_id)  # 자산 업데이트
-                db_query, db_result = await self._db_persona(query)
-                yield self._create_stream_response(type="DBQuery", data=db_query)
-                yield self._create_stream_response(type="DBResult", data=json.dumps(db_result, default=json_util.default, ensure_ascii=False))
-                persona_response = json.dumps({"db_query": db_query, "db_result": db_result}, default=json_util.default, ensure_ascii=False)
+                query, query_result = await self._db_persona(user_query, history, user_id)
+                yield self._create_stream_response(type="DBQuery", data=query)
+                yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+                persona_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
             
             summary_prompt = self.init_prompts["Summary"]
             summary_prompt.append({
@@ -209,7 +224,8 @@ class PromptService:
                 original_policy=json.dumps(filtered_original_policy, indent=2),
                 least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
             )
-            summary_prompt = [{"role": "system", "content": policy_content}]
+            summary_prompt = history
+            summary_prompt.append({"role": "system", "content": policy_content})
             summary_prompt.append({"role": "user", "content": user_question})
 
             # 응답 페르소나
@@ -218,7 +234,8 @@ class PromptService:
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Normal":
-            summary_prompt = [{"role": "user", "content": user_question}]
+            summary_prompt = history
+            summary_prompt.append({"role": "user", "content": user_question})
 
             # 응답 페르소나
             assistant_response = ""
@@ -251,7 +268,7 @@ class PromptService:
 
         # DB에 채팅 내역 저장
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
-        await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response)
+        await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
 
     async def handle_chat(self, user_question: str, prompt_session_id: str, user_id: str):
         try:

@@ -22,6 +22,8 @@ class PromptChat(Model):
     prompt_session_id: ObjectId
     role: str  # assistant or user
     content: str
+    query: Optional[str]
+
     created_at: datetime
 
     model_config = {"collection": "prompt_chats"}

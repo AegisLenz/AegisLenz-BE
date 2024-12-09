@@ -136,13 +136,14 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     
-    async def save_chat(self, prompt_session_id: str, role: str, content: str) -> None:
+    async def save_chat(self, prompt_session_id: str, role: str, content: str, query: Optional[str] = None) -> None:
         try:
             prompt_session_id = ObjectId(prompt_session_id)
             prompt_chat = PromptChat(
                 prompt_session_id=prompt_session_id,
                 role=role,
                 content=content,
+                query=query,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             await self.mongodb_engine.save(prompt_chat)
