@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from repositories.report_repository import ReportRepository
-from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema
+from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -31,3 +31,7 @@ class ReportService:
             report_content=report.report_content,
             created_at=report.created_at
         )
+
+    async def create_report_template(self, user_id: str, request: CreateReportTemplateRequestSchema):
+        title, selected_field, prompt_text = request.title, request.selected_field, request.prompt_text
+        return await self.report_repository.create_report_template(user_id, title, selected_field, prompt_text)
