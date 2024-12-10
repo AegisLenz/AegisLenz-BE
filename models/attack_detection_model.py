@@ -7,6 +7,7 @@ class AttackDetection(Model):
     elasticsearch_index_id: Optional[str] = None
     source_ip: Optional[str] = None
     least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
+    attack_graph: str
     
     user_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -19,11 +19,11 @@ class BertRepository:
 
             attack_detection = AttackDetection(
                 least_privilege_policy=least_privilege_policy,
+                attack_graph=attack_graph,
                 user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
 
-            # Report 객체 생성
             report = Report(
                 report_content=report,
                 user_id=user_id,
@@ -34,12 +34,8 @@ class BertRepository:
             await self.mongodb_engine.save(attack_detection)
             await self.mongodb_engine.save(report)
 
-            return attack_detection.id
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
-
-            await self.mongodb_engine.save(attack_detection)
             return str(attack_detection.id)
+
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
@@ -79,4 +75,3 @@ class BertRepository:
             return report
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
-    

@@ -1,26 +1,24 @@
-import boto3
-from dotenv import load_dotenv
 import os
+import asyncio
+from aioboto3 import Session
+from dotenv import load_dotenv
 
 # .env 파일 로드
 load_dotenv()
 
-# AWS 세션 설정
-session = boto3.Session(
+# AWS 세션 생성
+session = Session(
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     region_name=os.getenv("AWS_REGION")
 )
 
-# EC2 클라이언트 생성
-ec2_client = session.client('ec2')
+async def get_ec2_instances():
+    async with session.client('ec2') as ec2_client:
+        ec2_instances = []
+        reservations = (await ec2_client.describe_instances())["Reservations"]
 
-def get_ec2_instances():
-    ec2_instances = []
-    reservations = ec2_client.describe_instances()["Reservations"]
-
-    for reservation in reservations:
-        for instance in reservation["Instances"]:
+        async def process_instance(instance):
             instance_info = {
                 "InstanceId": instance.get("InstanceId", ""),
                 "InstanceType": instance.get("InstanceType", ""),
@@ -55,6 +53,11 @@ def get_ec2_instances():
                     "Encrypted": ebs_info.get("Encrypted", False)
                 })
 
-            ec2_instances.append(instance_info)
+            return instance_info
 
-    return ec2_instances
+        for reservation in reservations:
+            instances = reservation["Instances"]
+            processed_instances = await asyncio.gather(*(process_instance(instance) for instance in instances))
+            ec2_instances.extend(processed_instances)
+
+        return ec2_instances

@@ -1,6 +1,7 @@
 from odmantic import Model, EmbeddedModel, Field
 from typing import List, Optional
 from datetime import datetime
+from pydantic import ConfigDict
 
 
 class AccessKey(EmbeddedModel):
@@ -77,6 +78,12 @@ class Asset(EmbeddedModel):
     Role: List[Role] = Field(default_factory=list)
     EC2: List[EC2] = Field(default_factory=list)
     S3: List[S3_Bucket] = Field(default_factory=list)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def validate(self):
+        if not self.IAM and not self.Role and not self.EC2 and not self.S3:
+            raise ValueError("Asset must have at least one non-empty field.")
 
 class UserAsset(Model):
     user_id: str
