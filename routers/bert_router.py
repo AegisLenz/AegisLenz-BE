@@ -25,7 +25,8 @@ COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
 TACTICS_MAPPING_FILE = os.path.join(COMMON_DIR, "tactics_mapping.json")
 ELASTICSEARCH_MAPPING_FILE = os.path.join(COMMON_DIR, "elasticsearch_mapping.json")
 
-attack_index_name = "cloudtrail-attack-logs"
+LOGS_INDEX_NAME = os.getenv("ES_INDEX", "cloudtrail-logs-*")
+ATTACK_INDEX_NAME = os.getenv("ES_ATTACK_INDEX", "cloudtrail-attack-logs")
 
 def load_json(file_path):
     try:
@@ -67,7 +68,7 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp=None, last_so
 
     try:
         logs = es_service.search_logs(
-            index=os.getenv("ES_INDEX", "cloudtrail-logs-*"),
+            index=LOGS_INDEX_NAME,
             query=query,
             sort_field="@timestamp",
             sort_order="asc"
@@ -123,7 +124,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
 
                                     log_id = f"{source_ip}_{log.get('@timestamp', datetime.now().isoformat())}"
                                     try:
-                                        es_service.save_document(attack_index_name, log_id, attack_document)
+                                        es_service.save_document(ATTACK_INDEX_NAME, log_id, attack_document)
                                         logger.info(f"Document saved to Elasticsearch: {log_id}")
 
                                         user_id = "1"
@@ -135,6 +136,7 @@ async def sse_events(bert_service: BERTService = Depends(BERTService)):
                                         try:
                                             prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
                                             logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
+                                            attack_document["prompt_session_id"] = prompt_session_id
                                         except Exception as e:
                                             logger.error(f"Error in process_after_detection for user {user_id}: {e}")
                                     except ElasticsearchServiceError as e:
