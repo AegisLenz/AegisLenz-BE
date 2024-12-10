@@ -45,7 +45,7 @@ class PromptRepository:
                 f"Recommend Questions: '{recommend_questions}', "
                 f"Error: {str(e)}"
             )
-            raise HTTPException(status_code=500, detail=f"Failed to save the asset: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to create a prompt session: {str(e)}")
 
     async def find_prompt_session(self, prompt_session_id: str) -> PromptSession:
         try:

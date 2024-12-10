@@ -29,15 +29,13 @@ class BERTService:
 
     async def _create_report(self, attack_info):
         try:
-            report_content = self.init_prompts["Report"][0]["content"].format(
+            report_content = self.init_prompts["InitReport"][0]["content"].format(
                 attack_time=attack_info["attack_time"],
                 attack_type=attack_info["attack_type"],
                 logs=attack_info["logs"]
             )
             report_prompt = [{"role": "system", "content": report_content}]
             report = await self.gpt_service.get_response(report_prompt, json_format=False)
-
-            logger.debug("Successfully generated attack report.")
             return report
         except Exception as e:
             logger.error(f"Error while creating report: {e}")
@@ -52,25 +50,33 @@ class BERTService:
             )
             recommend_prompt = [{"role": "system", "content": recommend_content}]
 
-            base_query = f"AI 질의 : AWS 환경에서 발생한 공격이 MITRE ATTACK Tatic 중 {attack_info["attack_type"][0]}일 때, 보안 관리자가 어떤 질문을 해야 하는지 추천 질문 만들어줘 "
+            base_query = f"AI 질의 : AWS 환경에서 발생한 공격이 MITRE ATTACK Tatic 중 {attack_info["attack_type"][0]}일 때, 보안 관리자가 어떤 질문을 해야 하는지 추천 질문 만들어줘"
             recommend_prompt.append({"role": "user", "content": base_query})
-
             response = await self.gpt_service.get_response(recommend_prompt, json_format=False, recomm=True)
+            
             recommend_questions = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
             recommend_prompt.append({"role": "assistant", "content": "\n".join(recommend_questions)})
-
-            logger.debug("Successfully generated recommended questions.")
             return recommend_prompt, recommend_questions
         except Exception as e:
             logger.error(f"Error while creating recommended questions: {e}")
             raise HTTPException(status_code=500, detail="Failed to generate recommended questions.")
 
+    async def _create_attack_graph(self, attack_info: dict):
+        try:
+            attack_graph_content = self.init_prompts["Graph"][0]["content"].format(
+                logs=attack_info["logs"]
+            )
+            attack_graph_prompt = [{"role": "system", "content": attack_graph_content}]
+            attack_graph = await self.gpt_service.get_response(attack_graph_prompt, json_format=False)
+            return attack_graph
+        except Exception as e:
+            logger.error(f"Error while creating attack graph: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate attack graph.")
+
     async def predict_attack(self, log_data: str):
         try:
             preprocessed_logs = await self.predictor.preprocess_logs(log_data)
             prediction = await self.predictor.predict(preprocessed_logs)
-            
-            logger.debug(f"Prediction result: {prediction}")
             return prediction
         except Exception as e:
             logger.error(f"Error during attack prediction: {e}")
@@ -80,31 +86,40 @@ class BERTService:
         # 1. 자산 업데이트
         try:
             await self.asset_service.update_asset(user_id)
-            logger.debug("Asset update successful.")
+            logger.debug("asset updated successfully.")
         except Exception as e:
             logger.error(f"Error updating asset for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to update user assets.")
 
-        # 2. 보고서 & 최소권한정책 & 추천 질문 생성
+        # 2. 보고서 & 추천 질문 & 최소권한정책 & 공격 흐름그래프 생성
         try:
             report = await self._create_report(attack_info)
-            recommend_prompt, recommend_questions = await self._create_recommend_questions(attack_info, report)
-            least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-            logger.debug("Generated report, recommend questions, and least privilege policy.")
-        except Exception as e:
-            logger.error(f"Error during report or question generation: {e}")
-            raise HTTPException(status_code=500, detail="Failed to generate report, questions, or policies.")
+            logger.debug(f"Generated report: {report}")
 
-        # 3. 프롬프트 생성 및 관련 정보 저장
+            recommend_prompt, recommend_questions = await self._create_recommend_questions(attack_info, report)
+            logger.debug(f"Generated recommended questions: {recommend_questions}")
+
+            least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
+            logger.debug(f"Generated least privilege policy: {least_privilege_policy}")
+
+            attack_graph = await self._create_attack_graph(attack_info)
+            logger.debug(f"Generated attack graph: {attack_graph}")
+
+            logger.debug("report, recommend questions, least privilege policy, attack_graph generated successfully.")
+        except Exception as e:
+            logger.error(f"Error during report or questions or policies or graph generation: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate report, questions, policies, or graph.")
+
+        # 3. 프롬프트 생성 및 공격 관련 정보 저장
         try:
             title = f"{attack_info['attack_type']} 공격 탐지"
             attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
 
-            attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy)
-            prompt_session_id = await self.prompt_repository.create_prompt(attack_detection_id, recommend_prompt, recommend_questions, title, user_id)
+            attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy, attack_graph, user_id)
+            prompt_session_id = await self.prompt_repository.create_prompt(user_id, attack_detection_id, recommend_prompt, recommend_questions, title)
             await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content)
             
-            logger.debug("Attack detection and prompt session saved successfully.")
+            logger.debug("attack detection and prompt session saved successfully.")
             return prompt_session_id
         except Exception as e:
             logger.error(f"Error saving attack detection or prompts: {e}")
