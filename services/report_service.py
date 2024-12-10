@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from repositories.report_repository import ReportRepository
-from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema
+from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema, GetAllReportTemplateResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -35,3 +35,12 @@ class ReportService:
     async def create_report_template(self, user_id: str, request: CreateReportTemplateRequestSchema):
         title, selected_field, prompt_text = request.title, request.selected_field, request.prompt_text
         return await self.report_repository.create_report_template(user_id, title, selected_field, prompt_text)
+
+    async def get_all_report_template(self, user_id: str) -> GetAllReportTemplateResponseSchema:
+        report_templates = await self.report_repository.find_report_templates_by_user_id(user_id)
+        if not report_templates:
+            logger.warning(f"No report templates found for user_id={user_id}")
+            return GetAllReportTemplateResponseSchema(report_template_ids=[])
+        
+        report_template_ids = [str(report_template.id) for report_template in report_templates]
+        return GetAllReportTemplateResponseSchema(report_template_ids=report_template_ids)

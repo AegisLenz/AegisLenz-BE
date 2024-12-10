@@ -45,7 +45,7 @@ class ReportRepository:
             logger.error(f"Error fetching report for report_id={report_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
 
-    async def create_report_template(self, user_id, title, selected_field, prompt_text):
+    async def create_report_template(self, user_id: str, title: str, selected_field: list, prompt_text: str) -> ObjectId:
         try:
             report_template = ReportTemplate(
                 title=title,
@@ -58,3 +58,14 @@ class ReportRepository:
         except Exception as e:
             logger.error(f"Error creating report template for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to save the report template: {str(e)}")
+
+    async def find_report_templates_by_user_id(self, user_id: str) -> list:
+        try:
+            report_templates = await self.mongodb_engine.find(
+                ReportTemplate,
+                ReportTemplate.user_id == user_id
+            )
+            return report_templates
+        except Exception as e:
+            logger.error(f"Error fetching report templates for user_id={user_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch report templates: {str(e)}")
