@@ -66,3 +66,10 @@ class GetAllReportTemplateResponseSchema(BaseModel):
                 ]
             }
         }
+
+
+class GetReportTemplateResponseSchema(BaseModel):
+    title: Optional[str] = None
+    selected_field: list
+    prompt_text: str
+    created_at: datetime

@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
+from odmantic import ObjectId
 from repositories.report_repository import ReportRepository
-from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema, GetAllReportTemplateResponseSchema
+from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema, GetAllReportTemplateResponseSchema, GetReportTemplateResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -19,7 +20,7 @@ class ReportService:
         report_ids = [str(report.id) for report in reports]
         return GetAllReportResponseSchema(report_ids=report_ids)
 
-    async def get_report(self, user_id: str, report_id: str) -> GetReportResponseSchema:
+    async def get_report(self, user_id: str, report_id: ObjectId) -> GetReportResponseSchema:
         report = await self.report_repository.find_report_by_report_id(report_id)
         if not report:
             logger.warning(f"No report found for report_id={report_id}")
@@ -44,3 +45,16 @@ class ReportService:
         
         report_template_ids = [str(report_template.id) for report_template in report_templates]
         return GetAllReportTemplateResponseSchema(report_template_ids=report_template_ids)
+
+    async def get_report_template(self, user_id: str, report_template_id: ObjectId) -> GetReportTemplateResponseSchema:
+        report_template = await self.report_repository.find_report_template_by_report_template_id(report_template_id)
+        if not report_template:
+            logger.warning(f"No report found for report_template_id={report_template_id}")
+            raise HTTPException(status_code=404, detail="No report_template found for the given report template ID")
+
+        return GetReportTemplateResponseSchema(
+            title=report_template.title,
+            selected_field=report_template.selected_field,
+            prompt_text=report_template.prompt_text,
+            created_at=report_template.created_at
+        )

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Body
 from services.report_service import ReportService
-from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema, GetAllReportTemplateResponseSchema
+from schemas.report_schema import GetAllReportResponseSchema, GetReportResponseSchema, CreateReportTemplateRequestSchema, GetAllReportTemplateResponseSchema, GetReportTemplateResponseSchema
 
 router = APIRouter(prefix="/report", tags=["report"])
 
@@ -22,3 +22,8 @@ async def create_report_template(user_id: str = "1", request: CreateReportTempla
 @router.get("/template/", response_model=GetAllReportTemplateResponseSchema)
 async def get_all_report_template(user_id: str = "1", report_service: ReportService = Depends()):
     return await report_service.get_all_report_template(user_id)
+
+
+@router.get("/template/{report_template_id}", response_model=GetReportTemplateResponseSchema)
+async def get_report_template(report_template_id: str, user_id: str = "1", report_service: ReportService = Depends()):
+    return await report_service.get_report_template(user_id, report_template_id)

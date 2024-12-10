@@ -69,3 +69,14 @@ class ReportRepository:
         except Exception as e:
             logger.error(f"Error fetching report templates for user_id={user_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch report templates: {str(e)}")
+
+    async def find_report_template_by_report_template_id(self, report_template_id: ObjectId) -> ReportTemplate:
+        try:
+            report_template = await self.mongodb_engine.find_one(
+                ReportTemplate,
+                ReportTemplate.id == ObjectId(report_template_id)
+            )
+            return report_template
+        except Exception as e:
+            logger.error(f"Error fetching report template for report_template_id={report_template_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch report template: {str(e)}")
