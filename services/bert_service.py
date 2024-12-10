@@ -112,11 +112,7 @@ class BERTService:
 
         # 3. 프롬프트 생성 및 공격 관련 정보 저장
         try:
-<<<<<<< HEAD
-            attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy, user_id)
-=======
             attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy, attack_graph, user_id)
->>>>>>> dev
             prompt_session_id = await self.prompt_repository.create_prompt(attack_detection_id, recommend_prompt, recommend_questions)
             
             attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."

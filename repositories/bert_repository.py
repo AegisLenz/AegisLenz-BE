@@ -10,11 +10,7 @@ class BertRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
     
-<<<<<<< HEAD
-    async def save_attack_detection(self, report: str, least_privilege_policy: Dict[str, Dict[str, List[Any]]], user_id: str) -> str:
-=======
     async def save_attack_detection(self, report: str, least_privilege_policy: dict[str, dict[str, list[object]]], attack_graph: str, user_id: str) -> str:
->>>>>>> dev
         try:
             if not user_id or not isinstance(user_id, str):
                 raise ValueError("Invalid user_id")
@@ -23,7 +19,6 @@ class BertRepository:
 
             attack_detection = AttackDetection(
                 least_privilege_policy=least_privilege_policy,
-<<<<<<< HEAD
                 user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
@@ -42,12 +37,6 @@ class BertRepository:
             return attack_detection.id
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
-=======
-                attack_graph=attack_graph,
-                user_id=user_id,
-                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
-            )
->>>>>>> dev
 
             await self.mongodb_engine.save(attack_detection)
             return str(attack_detection.id)
