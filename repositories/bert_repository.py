@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone
 from database.mongodb_driver import mongodb
-from models.attack_detection_model import AttackDetection
+from models.attack_detection_model import AttackDetection, Report
 
 
 class BertRepository:
@@ -18,15 +18,24 @@ class BertRepository:
                 raise ValueError("Invalid attack_graph")
 
             attack_detection = AttackDetection(
-                report=report,
                 least_privilege_policy=least_privilege_policy,
                 attack_graph=attack_graph,
                 user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
 
+            report = Report(
+                report_content=report,
+                user_id=user_id,
+                attack_detection_id=attack_detection.id,
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
+            
             await self.mongodb_engine.save(attack_detection)
+            await self.mongodb_engine.save(report)
+
             return str(attack_detection.id)
+
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
@@ -44,5 +53,25 @@ class BertRepository:
             return attack_detection
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_reports(self, user_id: str):
+        try:
+            reports = await self.mongodb_engine.find(
+                AttackDetection,
+                AttackDetection.user_id == user_id
+            )
+            return reports
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
+
+    async def find_report_by_attack_detection(self, attack_detection_id: str):
+        try:
+            report = await self.mongodb_engine.find_one(
+                Report,
+                Report.attack_detection_id == attack_detection_id
+            )
+            return report
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")

@@ -1,4 +1,4 @@
-from odmantic import EmbeddedModel, Model
+from odmantic import EmbeddedModel, Model, Field
 from typing import List, Union
 
 
@@ -11,6 +11,6 @@ class PolicyAction(EmbeddedModel):
 class Policy(Model):
     service: str
     event_name: str
-    policy: List[PolicyAction]
+    policy: List[PolicyAction] = Field(default_factory=list)
 
     model_config = {"collection": "policies"}

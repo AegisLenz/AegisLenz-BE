@@ -27,7 +27,8 @@ class GPTService:
             "Report": "reportPr.md",
             "InitReport": "reportPr_init.md",
             "Recommend": "recomm.txt",
-            "Graph": "graphPr.txt"
+            "Graph": "graphPr.txt",
+            "ReportCheck": "reportcheck.txt"
         }
 
         init_prompts = {}
