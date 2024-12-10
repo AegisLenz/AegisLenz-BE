@@ -1,6 +1,5 @@
-from odmantic import Model, ObjectId
-from odmantic.field import Field
 from typing import Optional
+from odmantic import Model, ObjectId, Field
 from datetime import datetime
 
 
@@ -11,7 +10,7 @@ class PromptSession(Model):
 
     user_id: Optional[str] = Field(default=None)
     attack_detection_id: Optional[ObjectId] = Field(default=None)
-    
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

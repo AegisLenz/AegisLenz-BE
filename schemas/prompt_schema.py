@@ -64,6 +64,7 @@ class GetPromptContentsResponseSchema(BaseModel):
     title: str
     chats: List[GetPromptContentsSchema]
     report: Optional[str]
+    attack_graph: Optional[str]
     least_privilege_policy: Optional[Dict[str, Dict[str, List[Any]]]]
     init_recommend_questions: Optional[List[str]]
 

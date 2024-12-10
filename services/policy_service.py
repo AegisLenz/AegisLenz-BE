@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
 from services.policy.extract_policy_by_cloudTrail import extract_policy_by_cloudTrail
 from services.policy.comparePolicy import clustered_compare_policy
+from services.policy.filter_original_policy import filter_original_policy
 from repositories.user_repository import UserRepository
 from common.logging import setup_logger
 
@@ -37,9 +38,8 @@ class PolicyService:
             logger.error(f"Error comparing policies for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to compare policies.")
 
-        # 반환값 구성
         result = {
-            "original_policy": user_policy,
+            "original_policy": filter_original_policy(user_policy, clustered_policy_by_cloudtrail),
             "least_privilege_policy": clustered_policy_by_cloudtrail,
             "actions_to_remove": converted_actions
         }

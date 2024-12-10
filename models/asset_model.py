@@ -1,6 +1,8 @@
-from odmantic import Model, EmbeddedModel
+from odmantic import Model, EmbeddedModel, Field
 from typing import List, Optional
 from datetime import datetime
+from pydantic import ConfigDict
+
 
 class AccessKey(EmbeddedModel):
     AccessKeyId: str
@@ -11,11 +13,11 @@ class IAMUser(EmbeddedModel):
     UserName: str
     UserId: str
     CreateDate: datetime
-    UserPolicies: List[dict]
-    AttachedPolicies: List[dict]
-    Groups: List[str]
+    UserPolicies: List[dict] = Field(default_factory=list)
+    AttachedPolicies: List[dict] = Field(default_factory=list)
+    Groups: List[str] = Field(default_factory=list)
     PasswordLastUsed: Optional[datetime]
-    AccessKeysLastUsed: List[AccessKey]
+    AccessKeysLastUsed: List[AccessKey] = Field(default_factory=list)
     LastUpdated: Optional[datetime]
 
 class EBSVolume(EmbeddedModel):
@@ -29,7 +31,7 @@ class EBSVolume(EmbeddedModel):
     AvailabilityZone: str
     State: str
     CreateTime: Optional[datetime]
-    Attachments: List[str]
+    Attachments: List[str] = Field(default_factory=list)
     Encrypted: bool
 
 class EC2(EmbeddedModel):
@@ -41,10 +43,10 @@ class EC2(EmbeddedModel):
     PrivateIpAddress: Optional[str]
     VpcId: Optional[str]
     SubnetId: Optional[str]
-    SecurityGroups: List[dict]
-    Tags: List[dict]
+    SecurityGroups: List[dict] = Field(default_factory=list)
+    Tags: List[dict] = Field(default_factory=list)
     EbsVolumes: List[EBSVolume]
-    NetworkInterfaces: List[dict]
+    NetworkInterfaces: List[dict] = Field(default_factory=list)
     IamInstanceProfile: Optional[dict]
 
 class S3_Bucket(EmbeddedModel):
@@ -57,10 +59,31 @@ class S3_Bucket(EmbeddedModel):
     Versioning: Optional[str]
     Tags: Optional[List[dict]]
 
-class Asset(EmbeddedModel):  # EmbeddedModel로 수정
-    IAM: List[IAMUser]
-    EC2: List[EC2]
-    S3: List[S3_Bucket]
+class Role(EmbeddedModel):
+    Path: str
+    RoleName: str
+    RoleId: str
+    Arn: str
+    CreateDate: datetime
+    AssumeRolePolicyDocument: dict = Field(default_factory=dict)
+    Description: Optional[str] = ""
+    MaxSessionDuration: Optional[int] = 3600
+    PermissionsBoundary: Optional[dict] = None
+    Tags: Optional[List[dict]] = []
+    AttachedPolicies: List[dict] = Field(default_factory=list)
+    InlinePolicies: List[dict] = Field(default_factory=list)
+
+class Asset(EmbeddedModel):
+    IAM: List[IAMUser] = Field(default_factory=list)
+    Role: List[Role] = Field(default_factory=list)
+    EC2: List[EC2] = Field(default_factory=list)
+    S3: List[S3_Bucket] = Field(default_factory=list)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def validate(self):
+        if not self.IAM and not self.Role and not self.EC2 and not self.S3:
+            raise ValueError("Asset must have at least one non-empty field.")
 
 class UserAsset(Model):
     user_id: str

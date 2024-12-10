@@ -8,7 +8,6 @@ from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
-from repositories.user_repository import UserRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
 from services.policy.filter_original_policy import filter_original_policy
 from common.logging import setup_logger
@@ -18,12 +17,10 @@ logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 asset_repository: AssetRepository = Depends(), user_repository: UserRepository = Depends(),
-                 asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
+                 asset_repository: AssetRepository = Depends(), asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
-        self.user_repository = user_repository
         self.asset_service = asset_service
         self.gpt_service = gpt_service
         try:
@@ -51,23 +48,31 @@ class PromptService:
             for chat in prompt_chats
         ]
         
-        report, recommend_questions, least_privilege_policy = None, None, None
+        # 공격에 대한 프롬프트 대화창인 경우 report, recommend_questions, least_privilege_policy, attack_graph 가져오기
+        report, recommend_questions, least_privilege_policy, attack_graph = None, None, None, None
 
-        # 공격 프롬프트 창인 경우 report, least_privilege_policy, recommend_questions 가져오기
         is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)
         if is_attack_prompt:
-            attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
-            if attack_detection:
-                report = attack_detection.report
-                least_privilege_policy = attack_detection.least_privilege_policy
-                recommend_questions = prompt_session.recommend_questions[:3]
+            recommend_questions = prompt_session.recommend_questions[:3]
+
+            find_attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+            if find_attack_detection:
+                least_privilege_policy = find_attack_detection.least_privilege_policy
+                attack_graph = find_attack_detection.attack_graph
             else:
                 raise HTTPException(status_code=404, detail=f"attack_detection not found with ID: {prompt_session.attack_detection_id}")
+        
+            find_report = await self.bert_repository.find_report_by_attack_detection(prompt_session.attack_detection_id)
+            if find_report:
+                report = find_report.report_content
+            else:
+                raise HTTPException(status_code=404, detail=f"report not found with ID: {prompt_session.attack_detection_id}")
 
         return GetPromptContentsResponseSchema(
             title=title,
             chats=chats,
             report=report,
+            attack_graph=attack_graph,
             least_privilege_policy=least_privilege_policy,
             init_recommend_questions=recommend_questions
         )
@@ -125,10 +130,10 @@ class PromptService:
 
     async def _create_recommend_questions(self, prompt_session_id: str, user_question: str, assistant_response: str) -> list:
         recomm_history, pre_recomm_questions = await self.prompt_repository.find_recommend_data(prompt_session_id)
+        
         prompt_text = f"{user_question}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
         recomm_history.append({"role": "user", "content": prompt_text})
         recomm_history.append({"role": "assistant", "content": assistant_response})
-        logger.info(assistant_response)
 
         recomm_questions = await self._recommend_questions_persona(recomm_history, pre_recomm_questions)
         if recomm_questions:
@@ -209,7 +214,6 @@ class PromptService:
                 assistant_response += chunk
                 yield self._create_stream_response(type="Summary", data=chunk)
         elif persona_type == "Policy":
-            least_privilege_policy = None
             prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
             if not prompt_session:
                 raise HTTPException(
@@ -262,7 +266,7 @@ class PromptService:
 
         # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
         if is_attack:
-            recomm_questions = self._create_recommend_questions(prompt_session_id, user_question, assistant_response)
+            recomm_questions = await self._create_recommend_questions(prompt_session_id, user_question, assistant_response)
             yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
 
         yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
