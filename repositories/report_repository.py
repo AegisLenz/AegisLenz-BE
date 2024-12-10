@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from odmantic import ObjectId
 from database.mongodb_driver import mongodb
 from models.attack_detection_model import Report
 from common.logging import setup_logger
@@ -26,9 +27,20 @@ class ReportRepository:
         try:
             report = await self.mongodb_engine.find_one(
                 Report,
-                Report.attack_detection_id == attack_detection_id
+                Report.attack_detection_id == ObjectId(attack_detection_id)
             )
             return report
         except Exception as e:
             logger.error(f"Error fetching report for attack_detection_id={attack_detection_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
+
+    async def find_report_by_report_id(self, report_id: str) -> Report:
+        try:
+            report = await self.mongodb_engine.find_one(
+                Report,
+                Report.id == ObjectId(report_id)
+            )
+            return report
+        except Exception as e:
+            logger.error(f"Error fetching report for report_id={report_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")

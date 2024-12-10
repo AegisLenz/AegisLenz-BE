@@ -16,8 +16,8 @@ class AttackDetection(Model):
 
 
 class Report(Model):
-    report_content: str
     title: Optional[str] = None
+    report_content: str
 
     user_id: str
     attack_detection_id: ObjectId

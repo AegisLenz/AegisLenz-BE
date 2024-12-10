@@ -1,4 +1,7 @@
 from pydantic import BaseModel
+from odmantic import ObjectId
+from typing import Optional
+from datetime import datetime
 
 
 class GetAllReportResponseSchema(BaseModel):
@@ -14,3 +17,10 @@ class GetAllReportResponseSchema(BaseModel):
                 ]
             }
         }
+
+
+class GetReportResponseSchema(BaseModel):
+    title: Optional[str] = None
+    report_content: str
+    report_id: ObjectId
+    created_at: datetime
