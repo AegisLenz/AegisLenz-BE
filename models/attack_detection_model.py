@@ -1,15 +1,30 @@
+<<<<<<< HEAD
 from odmantic import Model, ObjectId, Field
+=======
+from odmantic import Model
+from odmantic.field import Field
+>>>>>>> dev
 from typing import Optional
 from datetime import datetime
 
 
 class AttackDetection(Model):
     elasticsearch_index_id: Optional[str] = None
+<<<<<<< HEAD
     source_ip: Optional[str] = None
     least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
     
     user_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+=======
+    ip_address: Optional[str] = None
+    report: str
+    least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
+    attack_graph: str
+
+    user_id: str
+    created_at: datetime
+>>>>>>> dev
 
     model_config = {"collection": "attack_detections"}
 

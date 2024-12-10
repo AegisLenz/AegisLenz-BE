@@ -1,0 +1,20 @@
+{
+    "t1136createaccount": "TA0003 - Persistence",
+    "t1098accountmanipulation": "TA0003 - Persistence",
+    "t1484domainpolicymodification": "TA0004 - Privilege Escalation",
+    "t1556modifyauthenticationprocess": "TA0004 - Privilege Escalation",
+    "t1070indicatorremovalonhost": "TA0005 - Defense Evasion",
+    "t1552unsecuredcredentials": "TA0005 - Defense Evasion",
+    "t1555credentialsfrompasswordstores": "TA0006 - Credential Access",
+    "t1111multifactorauthenticationinterception": "TA0006 - Credential Access",
+    "t1087accountdiscovery": "TA0007 - Discovery",
+    "t1016systemnetworkconfigurationdiscovery": "TA0007 - Discovery",
+    "t1069permissiongroupsdiscovery": "TA0007 - Discovery",
+    "t1059commandandscriptinginterpreter": "TA0008 - Execution",
+    "t1530datafromcloudstorage": "TA0009 - Collection",
+    "t1560archivecollecteddata": "TA0009 - Collection",
+    "t1020automatedexfiltration": "TA0010 - Exfiltration",
+    "t1048exfiltrationoveralternativeprotocol": "TA0010 - Exfiltration",
+    "t1537transferdatatocloudaccount": "TA0010 - Exfiltration",
+    "t1489servicestop": "TA0040 - Impact"
+}

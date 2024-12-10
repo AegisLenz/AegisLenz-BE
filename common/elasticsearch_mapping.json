@@ -1,0 +1,69 @@
+{
+    "mappings": {
+        "properties": {
+            "userIdentity": {
+                "properties": {
+                    "type": {"type": "keyword"},
+                    "principalId": {"type": "text"},
+                    "arn": {"type": "text"},
+                    "accountId": {"type": "keyword"},
+                    "accessKeyId": {"type": "keyword"},
+                    "userName": {"type": "keyword"},
+                    "sessionContext": {
+                        "properties": {
+                            "sessionIssuer": {
+                                "properties": {
+                                    "type": {"type": "text"},
+                                    "principalId": {"type": "keyword"},
+                                    "arn": {"type": "text"},
+                                    "accountId": {"type": "keyword"},
+                                    "userName": {"type": "keyword"}
+                                }
+                            },
+                            "attributes": {
+                                "properties": {
+                                    "creationDate": {"type": "date"},
+                                    "mfaAuthenticated": {"type": "boolean"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "eventTime": {"type": "date"},
+            "eventSource": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "eventName": {"type": "keyword"},
+            "awsRegion": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "sourceIPAddress": {"type": "ip"},
+            "userAgent": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "requestParameters": {"type": "object"},
+            "responseElements": {"type": "object"},
+            "eventType": {"type": "keyword"},
+            "errorCode": {
+                "type": "keyword",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "errorMessage": {"type": "text"},
+            "resources": {
+                "type": "text",
+                "properties": {
+                    "ARN": {"type": "text"},
+                    "accountId": {"type": "keyword"},
+                    "type": {"type": "text"}
+                }
+            },
+            "mitreAttackTactic": {"type": "keyword"},
+            "mitreAttackTechnique": {"type": "keyword"},
+            "attack_time": {"type": "date"}
+        }
+    }
+}
