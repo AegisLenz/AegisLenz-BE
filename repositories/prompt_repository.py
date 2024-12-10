@@ -13,33 +13,39 @@ from services.prompt.query_parser import convert_dates_in_query, parse_db_respon
 from common.logging import setup_logger
 
 logger = setup_logger()
+load_dotenv()
 
 
 class PromptRepository:
     def __init__(self):
         self.redis_client = RedisDriver()
-        load_dotenv()
         self.es_client = AsyncElasticsearch(f"{os.getenv("ES_HOST")}:{os.getenv("ES_PORT")}")
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None, recommend_questions: Optional[List[str]] = None) -> str:
+    async def create_prompt(self, user_id: str, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None,
+                            recommend_questions: Optional[List[str]] = None, title: Optional[str] = None) -> str:
         try:
-            attack_detection_id = ObjectId(attack_detection_id) if attack_detection_id else None
-            recommend_history = recommend_history or []
-            recommend_questions = recommend_questions or []
-
             prompt_session = PromptSession(
-                attack_detection_id=attack_detection_id,
+                title=title,
+                attack_detection_id=ObjectId(attack_detection_id) if attack_detection_id else None,
                 recommend_history=recommend_history,
                 recommend_questions=recommend_questions,
+                user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             result = await self.mongodb_engine.save(prompt_session)
             return result.id
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+            logger.error(
+                f"Error creating prompt session. Title: '{title}', "
+                f"Attack Detection ID: '{attack_detection_id}', "
+                f"Recommend History: '{recommend_history}', "
+                f"Recommend Questions: '{recommend_questions}', "
+                f"Error: {str(e)}"
+            )
+            raise HTTPException(status_code=500, detail=f"Failed to save the asset: {str(e)}")
 
     async def find_prompt_session(self, prompt_session_id: str) -> PromptSession:
         try:
@@ -51,9 +57,12 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    async def get_all_prompt(self) -> list:
+    async def get_all_prompt(self, user_id: str) -> list:
         try:
-            prompts = await self.mongodb_engine.find(PromptSession)
+            prompts = await self.mongodb_engine.find(
+                PromptSession,
+                PromptSession.user_id == user_id
+            )
             prompt_ids = [str(prompt.id) for prompt in prompts]
             return prompt_ids
         except Exception as e:

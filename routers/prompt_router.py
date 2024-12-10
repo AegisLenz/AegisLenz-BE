@@ -7,15 +7,15 @@ router = APIRouter(prefix="/prompt", tags=["prompt"])
 
 
 @router.post("/", response_model=CreatePromptResponseSchema)
-async def create_prompt(prompt_service: PromptService = Depends()):
-    prompt_session_id = await prompt_service.create_prompt()
+async def create_prompt(user_id: str = "1", prompt_service: PromptService = Depends()):
+    prompt_session_id = await prompt_service.create_prompt(user_id)
     response = CreatePromptResponseSchema(prompt_session_id=prompt_session_id)
     return response
 
 
 @router.get("/", response_model=GetAllPromptResponseSchema)
-async def get_all_prompt(prompt_service: PromptService = Depends()):
-    prompts = await prompt_service.get_all_prompt()
+async def get_all_prompt(user_id: str = "1", prompt_service: PromptService = Depends()):
+    prompts = await prompt_service.get_all_prompt(user_id)
     response = GetAllPromptResponseSchema(prompt_ids=prompts)
     return response
 

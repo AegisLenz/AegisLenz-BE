@@ -5,25 +5,25 @@ from datetime import datetime
 
 
 class PromptSession(Model):
-    user_id: Optional[ObjectId] = None
-    title: Optional[str] = None
-
-    attack_detection_id: Optional[ObjectId] = None
+    title: Optional[str] = Field(default=None)
     recommend_history: Optional[list[dict]] = Field(default_factory=list)
     recommend_questions: Optional[list[str]] = Field(default_factory=list)
 
-    created_at: datetime
-    updated_at: datetime
+    user_id: Optional[str] = Field(default=None)
+    attack_detection_id: Optional[ObjectId] = Field(default=None)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {"collection": "prompt_sessions"}
 
 
 class PromptChat(Model):
-    prompt_session_id: ObjectId
-    role: str  # assistant or user
+    role: str
     content: str
-    query: Optional[str]
+    query: Optional[str] = Field(default=None)
 
-    created_at: datetime
+    prompt_session_id: ObjectId
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {"collection": "prompt_chats"}

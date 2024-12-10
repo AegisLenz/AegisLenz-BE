@@ -33,11 +33,11 @@ class PromptService:
             logger.error(f"Failed to load initial prompts: {e}")
             raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
     
-    async def create_prompt(self) -> str:
-        return await self.prompt_repository.create_prompt()
+    async def create_prompt(self, user_id: str) -> str:
+        return await self.prompt_repository.create_prompt(user_id)
 
-    async def get_all_prompt(self) -> list:
-        return await self.prompt_repository.get_all_prompt()
+    async def get_all_prompt(self, user_id: str) -> list:
+        return await self.prompt_repository.get_all_prompt(user_id)
 
     async def get_prompt_chats(self, prompt_session_id: str) -> GetPromptContentsResponseSchema:
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
@@ -123,9 +123,24 @@ class PromptService:
         ]
         return unique_questions[:3]
 
+    async def _create_recommend_questions(self, prompt_session_id: str, user_question: str, assistant_response: str) -> list:
+        recomm_history, pre_recomm_questions = await self.prompt_repository.find_recommend_data(prompt_session_id)
+        prompt_text = f"{user_question}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
+        recomm_history.append({"role": "user", "content": prompt_text})
+        recomm_history.append({"role": "assistant", "content": assistant_response})
+        logger.info(assistant_response)
+
+        recomm_questions = await self._recommend_questions_persona(recomm_history, pre_recomm_questions)
+        if recomm_questions:
+            recomm_history.append({"role": "assistant", "content": "\n".join(recomm_questions)})
+            pre_recomm_questions.extend(recomm_questions)
+
+        await self.prompt_repository.update_recommend_data(prompt_session_id, recomm_history, pre_recomm_questions)
+        return recomm_questions
+
     async def _create_prompt_title(self, prompt_session_id: str, user_question: str):
-        prompt_chats = await self.prompt_repository.get_prompt_chats(prompt_session_id)
-        if len(prompt_chats) == 0:
+        prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
+        if not prompt_session.title:
             title_prompt = [{"role": "system", "content": "다음 사용자의 요청을 요약하여 15자 이내로 제목을 생성해 주세요.\n"}]
             title_prompt.append({"role": "user", "content": user_question})
             title = await self.gpt_service.get_response(title_prompt, json_format=False)
@@ -245,24 +260,14 @@ class PromptService:
         else:
             raise HTTPException(status_code=500, detail="Failed Classify.")
 
-        # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성 로직 수행
+        # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
         if is_attack:
-            recomm_history, pre_recomm_questions = await self.prompt_repository.find_recommend_data(prompt_session_id)
-            prompt_text = f"{user_question}\n 이전과 중복되지 않는 세 줄 질문을 생성해 주세요. 출력은 반드시 세개의 간단한 질문으로만 주세요."
-            recomm_history.append({"role": "user", "content": prompt_text})
-            recomm_history.append({"role": "assistant", "content": assistant_response})
-
-            recomm_questions = await self._recommend_questions_persona(recomm_history, pre_recomm_questions)
-            if recomm_questions:
-                yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
-                recomm_history.append({"role": "assistant", "content": "\n".join(recomm_questions)})
-                pre_recomm_questions.extend(recomm_questions)
-
-            await self.prompt_repository.update_recommend_data(prompt_session_id, recomm_history, pre_recomm_questions)
+            recomm_questions = self._create_recommend_questions(prompt_session_id, user_question, assistant_response)
+            yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
 
         yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
-
         await self._create_prompt_title(prompt_session_id, user_question)  # 프롬프트 타이틀 생성
+
         await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
         await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
 
