@@ -21,7 +21,8 @@ class UserRepository:
                 raise HTTPException(status_code=404, detail=f"No assets found for user ID '{user_id}'.")
 
             if asset_type == "EC2":
-                return {"EC2": [ec2.dict() for ec2 in user_asset.asset.EC2]}
+                logger.info(user_asset.asset.EC2)
+                return {"EC2": [ec2 for ec2 in user_asset.asset.EC2]}
             elif asset_type == "S3_Bucket":
                 return {"S3_Bucket": [bucket.dict() for bucket in user_asset.asset.S3]}
             elif asset_type == "IAMUser":
