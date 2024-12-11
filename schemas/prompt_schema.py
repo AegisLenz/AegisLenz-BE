@@ -61,7 +61,7 @@ class GetPromptContentsSchema(BaseModel):
 
 
 class GetPromptContentsResponseSchema(BaseModel):
-    title: str
+    title: Optional[str]
     chats: List[GetPromptContentsSchema]
     report: Optional[str]
     attack_graph: Optional[str]
