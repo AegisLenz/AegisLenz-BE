@@ -152,7 +152,7 @@ async def sse_events(
                                 except Exception as e:
                                     handle_exception(e, "Error saving prediction to Elasticsearch")
 
-                                if prediction != 'No Attack':
+                                if prediction and prediction not in ['No Attack', 'Prediction Error']:
                                     normalized_prediction = normalize_key(str(prediction))
                                     tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
 

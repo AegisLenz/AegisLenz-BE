@@ -55,11 +55,12 @@ class ElasticsearchService:
     async def search_logs(self, index, query, size=5, sort_field="@timestamp", sort_order="desc", timeout="30s"):
         try:
             timeout = await self._validate_timeout(timeout)
+            request_timeout = request_timeout or timeout
 
             response = await self.es.search(
                 index=index,
                 body={"size": size, "sort": [{sort_field: {"order": sort_order}}], "query": query},
-                request_timeout=timeout,
+                request_timeout=request_timeout,
             )
             return [hit["_source"] for hit in response.get("hits", {}).get("hits", [])]
         except es_exceptions.ConnectionError as e:
