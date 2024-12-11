@@ -25,7 +25,10 @@ class GPTService:
             "Policy": "policy.txt",
             "Summary": "DetailPr.txt",
             "Report": "reportPr.md",
-            "Recommend": "recomm.txt"
+            "InitReport": "reportPr_init.md",
+            "Recommend": "recomm.txt",
+            "Graph": "graphPr.txt",
+            "ReportCheck": "reportcheck.txt"
         }
 
         init_prompts = {}

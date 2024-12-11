@@ -50,4 +50,4 @@ jobs:
 
             # Docker 컨테이너 재배포
             docker-compose -p aegislenz down
-            docker-compose -p aegislenz up --build -d
+            docker-compose -p aegislenz -f docker-compose.yml -f docker-compose.prod.yml up --build -d

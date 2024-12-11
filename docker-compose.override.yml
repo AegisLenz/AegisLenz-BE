@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+    volumes:
+      - ./:/app # 실시간 코드 반영
+      - ../model:/app/ai/model
+    command: uvicorn main:app --host 0.0.0.0 --port 80 --reload
