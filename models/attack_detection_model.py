@@ -16,10 +16,23 @@ class AttackDetection(Model):
 
 
 class Report(Model):
+    title: Optional[str] = None
     report_content: str
-    
+
     user_id: str
     attack_detection_id: ObjectId
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {"collection": "reports"}
+
+
+class ReportTemplate(Model):
+    title: Optional[str] = None
+    selected_field: list[str]
+    prompt_text: str
+    
+    user_id: str
+    report_id: Optional[ObjectId] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = {"collection": "report_templates"}
