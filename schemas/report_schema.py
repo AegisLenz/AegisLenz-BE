@@ -70,6 +70,6 @@ class GetAllReportTemplateResponseSchema(BaseModel):
 
 class GetReportTemplateResponseSchema(BaseModel):
     title: Optional[str] = None
-    selected_field: list
+    selected_field: list[str]
     prompt_text: str
     created_at: datetime

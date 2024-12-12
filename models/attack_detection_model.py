@@ -28,7 +28,7 @@ class Report(Model):
 
 class ReportTemplate(Model):
     title: Optional[str] = None
-    selected_field: list
+    selected_field: list[str]
     prompt_text: str
     
     user_id: str
