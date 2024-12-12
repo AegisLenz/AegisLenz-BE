@@ -6,30 +6,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from services.bert_service import BERTService
 from schemas.bert_schema import PredictionSchema
-from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from database.redis_driver import RedisDriver
+from services.es_service import ElasticsearchService, ElasticsearchServiceError
 from common.logging import setup_logger
 
-# 환경 변수 로드
 load_dotenv()
-
-# 로거 설정
 logger = setup_logger()
 
-# Elasticsearch 클라이언트 설정
-es_host = os.getenv("ES_HOST")
-es_port = os.getenv("ES_PORT")
-es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
-es = Elasticsearch(f"{es_host}:{es_port}", max_retries=10, retry_on_timeout=True, request_timeout=120)
-
-# Redis 드라이버 설정
 redis_driver = RedisDriver()
+es_service = ElasticsearchService()
 
-# API 라우터 설정
 router = APIRouter(prefix="/bert", tags=["bert"])
 
-# JSON 파일 경로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
@@ -37,12 +26,15 @@ COMMON_DIR = os.path.join(PROJECT_ROOT, "common")
 TACTICS_MAPPING_FILE = os.path.join(COMMON_DIR, "tactics_mapping.json")
 ELASTICSEARCH_MAPPING_FILE = os.path.join(COMMON_DIR, "elasticsearch_mapping.json")
 
-# JSON 데이터 로드 함수
+LOGS_INDEX_NAME = os.getenv("ES_INDEX")
+ATTACK_INDEX_NAME = os.getenv("ES_ATTACK_INDEX")
+
+BUFFER_SIZE = 5
+
 def load_json(file_path):
     try:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found at {file_path}")
-        
         with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             logger.info(f"Successfully loaded {file_path}")
@@ -51,125 +43,158 @@ def load_json(file_path):
         logger.error(f"Failed to load {file_path}: {e}")
         return {}
 
-# JSON 데이터 로드
 tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 elasticsearch_mapping = load_json(ELASTICSEARCH_MAPPING_FILE)
 
-def initialize_elasticsearch_mapping():
-    """
-    Set up Elasticsearch mapping (schema).
-    """
-    index_name = os.getenv("ES_INDEX", "cloudtrail-logs")
-
-    try:
-        if not es.indices.exists(index=index_name):
-            es.indices.create(index=index_name, body=elasticsearch_mapping)
-            logger.info(f"Created and applied mapping to Elasticsearch index '{index_name}'.")
-        else:
-            logger.info(f"Elasticsearch index '{index_name}' already exists.")
-    except Exception as e:
-        logger.error(f"Error setting up Elasticsearch mapping: {e}")
-
-initialize_elasticsearch_mapping()
-
 def normalize_key(key: str) -> str:
-    """
-    Normalize a key to maintain consistency in mappings.
-    """
+    """키를 정규화하여 일관된 매핑 사용을 위해 사용."""
     return key.strip().lower().replace(" ", "").replace("-", "")
 
-async def fetch_logs_from_elasticsearch():
-    """
-    Fetch the last 5 logs from Elasticsearch.
-    """
+def handle_exception(error, context=""):
+    """공통 에러 핸들링 로직."""
+    logger.error(f"{context} - {str(error)}")
+    return {"error": str(error)}
+
+async def fetch_logs_from_elasticsearch(es_service, last_timestamp=None, last_sort_key=None, size=100):
+    """Elasticsearch에서 주어진 타임스탬프 이후의 로그를 가져오는 함수."""
+    if not last_timestamp:
+        logger.error("No timestamp provided, skipping log fetch to prevent processing all logs.")
+        return [], None
+
+    query = {"range": {"@timestamp": {"gt": last_timestamp}}}
+    body = {
+        "size": size,
+        "sort": [{"@timestamp": "asc"}],
+        "query": query,
+    }
+    if last_sort_key:
+        body["search_after"] = [last_sort_key]
+
     try:
-        response = es.search(
-            index=es_index,
-            body={
-                "size": 5,
-                "sort": [{"@timestamp": {"order": "desc"}}],
-                "query": {"match_all": {}}
-            }
+        logs = await es_service.search_logs(
+            index=LOGS_INDEX_NAME,
+            query=query,
+            sort_field="@timestamp",
+            sort_order="asc"
         )
-        logs = [hit["_source"] for hit in response["hits"]["hits"]]
         logger.info(f"Fetched {len(logs)} logs from Elasticsearch.")
-        return logs
-    except es_exceptions.ConnectionError as e:
-        logger.error(f"Elasticsearch connection error: {str(e)}")
-        return []
-    except es_exceptions.RequestError as e:
-        logger.error(f"Elasticsearch request error: {str(e)}")
-        return []
-    except Exception as e:
-        logger.error(f"Error fetching logs from Elasticsearch: {str(e)}")
-        return []
+        return logs, None if not logs else logs[-1].get("sort")
+    except ElasticsearchServiceError as e:
+        handle_exception(e, "Error fetching logs from Elasticsearch")
+        return [], None
 
 @router.get("/events", response_model=PredictionSchema)
-async def sse_events(bert_service: BERTService = Depends(BERTService)):
+async def sse_events(
+    bert_service: BERTService = Depends(),
+    redis_driver: RedisDriver = Depends(),
+    es_service: ElasticsearchService = Depends()
+):
     async def event_generator():
+        backfilling = True
+        last_timestamp = "2024-11-25T00:00:00.000Z"
+        last_sort_key = None
+        error_count = 0
+        max_retries = 3
+
+        latest_log = await es_service.search_logs(
+            index=LOGS_INDEX_NAME,
+            query={"match_all": {}},
+            sort_field="@timestamp",
+            sort_order="desc",
+            size=1
+        )
+        max_timestamp = latest_log[0].get("@timestamp") if latest_log else None
+
         while True:
             try:
-                logs = await fetch_logs_from_elasticsearch()
+                logger.info(f"Fetching logs with last_timestamp: {last_timestamp}, last_sort_key: {last_sort_key}")
+                logs, last_sort_key = await fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_key)
+
                 if logs:
+                    last_timestamp = logs[-1].get("@timestamp", last_timestamp)
+
                     for log in logs:
-                        source_ip = log.get("sourceIPAddress")
-                        if source_ip:
-                            try:
-                                await redis_driver.set_log_queue(source_ip, log)
-                                logger.info(f"Log for {source_ip} added to Redis.")
-                            except Exception as redis_error:
-                                logger.error(f"Error adding log to Redis: {str(redis_error)}")
+                        source_ip = log.get("sourceIPAddress", "unknown")
+                        if source_ip == "unknown":
+                            logger.warning("Log without sourceIPAddress encountered.")
+                            continue
+
+                        try:
+                            if await redis_driver.is_processed(source_ip):
+                                logger.info(f"Log for {source_ip} already processed. Skipping.")
                                 continue
+                        except Exception as e:
+                            handle_exception(e, f"Error checking if log is processed for IP {source_ip}")
+                            continue
 
-                for source_ip in {log.get("sourceIPAddress") for log in logs if log.get("sourceIPAddress")}:
-                    try:
-                        buffer = await redis_driver.get_log_queue(source_ip)
-                        if len(buffer) == 5:
-                            prediction = await bert_service.predict_attack(buffer)
-                            
-                            logger.info(f"Raw prediction value for {source_ip}: {prediction}")
-                            normalized_prediction = normalize_key(str(prediction))
-                            logger.info(f"Normalized prediction: {normalized_prediction}")
-
-                            tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
-                            logger.info(f"Mapped tactic: {tactic}")
-
-                            if tactic == "Unknown Tactic":
-                                logger.warning(f"Mapping failed for prediction: {prediction} (normalized: {normalized_prediction})")
-
-                            if prediction != 'No Attack':
-                                attack_document = {
-                                    **log,
-                                    "mitreAttackTactic": tactic,
-                                    "mitreAttackTechnique": str(prediction),
-                                    "attack_time": datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None).isoformat()
-                                }
-
-                                # BERT 결과 Elasticsearch에 저장
-                                es.index(index="cloudtrail-logs", body=attack_document)
-                                logger.info(f"Document saved to Elasticsearch: {attack_document}")
-
-                                user_id = log.get("userIdentity", {}).get("arn", "unknown_user")
-                                attack_info = {
-                                    "attack_time": attack_document["attack_time"],
-                                    "attack_type": [tactic],
-                                    "logs": json.dumps(attack_document)
-                                }
+                        try:
+                            await redis_driver.set_log_queue(source_ip, log, ttl=3600)
+                            buffer = await redis_driver.get_log_queue(source_ip)
+                            if len(buffer) == BUFFER_SIZE:
                                 try:
-                                    prompt_session_id = await bert_service.process_after_detection(user_id, attack_info)
-                                    logger.info(f"Session ID {prompt_session_id} generated for user {user_id}.")
+                                    prediction = await bert_service.predict_attack(buffer)
                                 except Exception as e:
-                                    logger.error(f"Error in process_after_detection for {user_id}: {e}")
-                                yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
+                                    handle_exception(e, "BERT prediction error")
+                                    prediction = "Prediction Error"
 
-                            await redis_driver.log_prediction(source_ip, {"prediction": str(prediction)})
-                    except Exception as e:
-                        logger.error(f"Error processing prediction for {source_ip}: {str(e)}")
-                        continue
+                                logger.info(f"Prediction result: {prediction}")
+
+                                prediction_document = {
+                                    "source_ip": source_ip,
+                                    "prediction": prediction,
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "buffer": buffer
+                                }
+
+                                try:
+                                    await es_service.save_document("bert-predictions", source_ip, prediction_document)
+                                    logger.info(f"Prediction for {source_ip} saved to Elasticsearch.")
+                                except Exception as e:
+                                    handle_exception(e, "Error saving prediction to Elasticsearch")
+
+                                if prediction and prediction not in ['No Attack', 'Prediction Error']:
+                                    normalized_prediction = normalize_key(str(prediction))
+                                    tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
+
+                                    attack_document = {
+                                        **log,
+                                        "mitreAttackTactic": tactic,
+                                        "mitreAttackTechnique": normalized_prediction,
+                                        "attack_time": datetime.now(timezone(timedelta(hours=9))).isoformat()
+                                    }
+
+                                    log_id = f"{source_ip}_{log.get('@timestamp', datetime.now().isoformat())}"
+                                    try:
+                                        es_service.save_document(ATTACK_INDEX_NAME, log_id, attack_document)
+                                        logger.info(f"Document saved to Elasticsearch: {log_id}")
+                                    except Exception as e:
+                                        handle_exception(e, "Error saving attack document to Elasticsearch")
+
+                                    yield f"data: {json.dumps(attack_document, ensure_ascii=False)}\n\n"
+                                    await redis_driver.mark_as_processed(source_ip)
+
+                        except Exception as e:
+                            handle_exception(e, f"Error processing log for IP {source_ip}")
+
+                else:
+                    if backfilling and (max_timestamp is None or last_timestamp >= max_timestamp):
+                        logger.info("Backfill complete. Switching to real-time detection.")
+                        backfilling = False
+                        last_timestamp = datetime.now(timezone.utc).isoformat()
+                    elif not backfilling:
+                        logger.info("No new logs fetched. Sleeping briefly.")
+                        await asyncio.sleep(5)
+
             except Exception as e:
-                logger.error(f"Error in event generator: {str(e)}")
+                error_count += 1
+                handle_exception(e, f"Error in event generator (attempt {error_count}/{max_retries})")
+                if error_count >= max_retries:
+                    logger.critical("Max retries reached, stopping event generator")
+                    break
                 yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-            
-            await asyncio.sleep(5)
-    
+                await asyncio.sleep(10)
+            else:
+                error_count = 0
+                await asyncio.sleep(1 if logs else 5)
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")

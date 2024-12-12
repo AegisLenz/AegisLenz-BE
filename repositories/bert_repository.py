@@ -56,11 +56,11 @@ class BertRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 
-    async def find_reports(self, user_id: str):
+    async def find_reports_by_user_id(self, user_id: str):
         try:
             reports = await self.mongodb_engine.find(
-                AttackDetection,
-                AttackDetection.user_id == user_id
+                Report,
+                Report.user_id == user_id
             )
             return reports
         except Exception as e:

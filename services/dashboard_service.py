@@ -73,10 +73,10 @@ class DashboardService:
             # Policy 개수 계산
             for iam in user_assets.asset.IAM:
                 for policy in iam.UserPolicies:
-                    unique_user_policies.add(policy.PolicyName)
+                    unique_user_policies.add(policy["PolicyName"])
 
                 for policy in iam.AttachedPolicies:
-                    unique_attached_policies.add(policy.PolicyName)
+                    unique_attached_policies.add(policy["PolicyName"])
 
             policy_count += len(unique_user_policies)
             policy_count += len(unique_attached_policies)
@@ -111,10 +111,10 @@ class DashboardService:
             # Policy, Group 개수 계산
             for iam in user_assets.asset.IAM:
                 for policy in iam.UserPolicies:
-                    unique_user_policies.add(policy.PolicyName)
+                    unique_user_policies.add(policy["PolicyName"])
 
                 for policy in iam.AttachedPolicies:
-                    unique_attached_policies.add(policy.PolicyName)
+                    unique_attached_policies.add(policy["PolicyName"])
 
                 groups += len(iam.Groups)
 
@@ -354,7 +354,7 @@ class DashboardService:
 
     async def get_report_check(self, user_id: str) -> ReportCheckResponseSchema:
         try:
-            reports = await self.bert_repository.find_reports(user_id)
+            reports = await self.bert_repository.find_reports_by_user_id(user_id)
             if not reports:
                 return ReportCheckResponseSchema(report_check=[])
             
