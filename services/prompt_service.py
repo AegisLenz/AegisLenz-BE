@@ -73,7 +73,7 @@ class PromptService:
             else:
                 raise HTTPException(status_code=404, detail=f"attack_detection not found with ID: {prompt_session.attack_detection_id}")
         
-            find_report = await self.bert_repository.find_report_by_attack_detection(prompt_session.attack_detection_id)
+            find_report = await self.report_repository.find_report_by_attack_detection(prompt_session.attack_detection_id)
             if find_report:
                 report = find_report.report_content
             else:

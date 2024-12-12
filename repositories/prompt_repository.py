@@ -61,7 +61,8 @@ class PromptRepository:
         try:
             prompts = await self.mongodb_engine.find(
                 PromptSession,
-                PromptSession.user_id == user_id
+                PromptSession.user_id == user_id,
+                sort=(PromptSession.updated_at, PromptSession.updated_at.desc())
             )
             return prompts
         except Exception as e:
