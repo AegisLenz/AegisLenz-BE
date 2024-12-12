@@ -1,7 +1,8 @@
 from fastapi import HTTPException
+from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone
 from models.asset_model import UserAsset
-from models.user_model import User
+from models.user_model import User, Bookmark
 from database.mongodb_driver import mongodb
 from common.logging import setup_logger
 
@@ -66,46 +67,43 @@ class UserRepository:
                     created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                     updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
                 )
+                await self.mongodb_engine.save(user)
             
-            user.bookmark.append(question)
-            await self.mongodb_engine.save(user)
+            bookmark = Bookmark(
+                question=question,
+                user_id=user_id
+            )
+            await self.mongodb_engine.save(bookmark)
             return {"message": f"Bookmark '{question}' successfully added for user ID '{user_id}'."}
         except Exception as e:
             logger.error(f"Error adding bookmark. User ID: '{user_id}', Question: '{question}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to add bookmark for user ID '{user_id}': {str(e)}")
 
-    async def find_bookmark(self, user_id: str):
+    async def find_bookmarks(self, user_id: str):
         try:
-            user = await self.mongodb_engine.find_one(
-                User,
-                User.id == user_id
+            bookmarks = await self.mongodb_engine.find(
+                Bookmark,
+                Bookmark.user_id == user_id
             )
-            if not user:
-                logger.error(f"User with ID '{user_id}' not found.")
-                raise HTTPException(status_code=404, detail=f"User with ID '{user_id}' not found")
-            return user.bookmark
+            if not bookmarks:
+                logger.error(f"Bookmark with ID '{user_id}' not found.")
+                raise HTTPException(status_code=404, detail=f"Bookmark with ID '{user_id}' not found")
+            return bookmarks
         except Exception as e:
             logger.error(f"Error retrieving bookmarks for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve bookmarks for user ID '{user_id}': {str(e)}")
 
-    async def delete_bookmark(self, user_id: str, question: str):
+    async def delete_bookmark(self, bookmark_id: ObjectId):
         try:
-            user = await self.mongodb_engine.find_one(
-                User,
-                User.id == user_id
+            bookmark = await self.mongodb_engine.find_one(
+                Bookmark,
+                Bookmark.id == ObjectId(bookmark_id)
             )
-            if not user:
-                logger.error(f"User with ID '{user_id}' not found.")
-                raise HTTPException(status_code=404, detail=f"User with ID '{user_id}' not found")
-
-            if question in user.bookmark:
-                user.bookmark.remove(question)
-                user.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
-                await self.mongodb_engine.save(user)
-                return {"message": f"The bookmark '{question}' has been successfully deleted for user ID '{user_id}'"}
-            else:
-                logger.error(f"The bookmark '{question}' was not found for user ID '{user_id}'.")
-                raise HTTPException(status_code=404, detail=f"The bookmark '{question}' was not found for user ID '{user_id}'")
+            if not bookmark:
+                raise HTTPException(status_code=404, detail=f"Bookmark ID '{bookmark_id}' not found")
+            
+            await self.mongodb_engine.delete(bookmark)
+            return {"message": f"The bookmark has been successfully deleted for bookmark ID '{bookmark_id}'"}
         except Exception as e:
-            logger.error(f"Error deleting bookmark. User ID: '{user_id}', Question: '{question}', Error: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete bookmark '{question}' for user ID '{user_id}': {str(e)}")
+            logger.error(f"Error deleting bookmark. Bookmar ID: '{bookmark_id}', Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete bookmark for bookmark ID '{bookmark_id}': {str(e)}")

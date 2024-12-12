@@ -1,4 +1,5 @@
 from fastapi import Depends
+from odmantic import ObjectId
 from repositories.user_repository import UserRepository
 
 
@@ -18,8 +19,8 @@ class UserService:
     async def create_bookmark(self, user_id: str, question: str):
         return await self.user_repository.create_bookmark(user_id, question)
 
-    async def get_bookmark(self, user_id: str) -> list:
-        return await self.user_repository.find_bookmark(user_id)
+    async def get_bookmarks(self, user_id: str) -> list:
+        return await self.user_repository.find_bookmarks(user_id)
 
-    async def delete_bookmark(self, user_id: str, question: str):
-        return await self.user_repository.delete_bookmark(user_id, question)
+    async def delete_bookmark(self, bookmark_id: ObjectId):
+        return await self.user_repository.delete_bookmark(bookmark_id)
