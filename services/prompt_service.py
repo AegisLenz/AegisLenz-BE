@@ -8,6 +8,7 @@ from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
+from repositories.report_repository import ReportRepository
 from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
 from services.policy.filter_original_policy import filter_original_policy
 from common.logging import setup_logger
@@ -16,10 +17,12 @@ logger = setup_logger()
 
 class PromptService:
     def __init__(self, prompt_repository: PromptRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 asset_repository: AssetRepository = Depends(), asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
+                 asset_repository: AssetRepository = Depends(), report_repository: ReportRepository = Depends(),
+                 asset_service: AssetService = Depends(), gpt_service: GPTService = Depends()):
         self.prompt_repository = prompt_repository
         self.bert_repository = bert_repository
         self.asset_repository = asset_repository
+        self.report_repository = report_repository
         self.asset_service = asset_service
         self.gpt_service = gpt_service
         try:
@@ -60,7 +63,7 @@ class PromptService:
                 if find_attack_detection:
                     least_privilege_policy = find_attack_detection.least_privilege_policy
                 
-                find_report = await self.bert_repository.find_report_by_attack_detection(prompt_session.attack_detection_id)
+                find_report = await self.report_repository.find_report_by_attack_detection(prompt_session.attack_detection_id)
                 if find_report:
                     report = find_report.report_content
                 
