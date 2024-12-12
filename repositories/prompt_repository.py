@@ -23,27 +23,27 @@ class PromptRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
 
-    async def create_prompt(self, user_id: str, attack_detection_id: Optional[str] = None, recommend_history: Optional[List[Dict]] = None,
-                            recommend_questions: Optional[List[str]] = None, title: Optional[str] = None) -> str:
+    async def create_prompt(self, user_id: str, attack_detection_id: Optional[ObjectId] = None,
+                            recommend_history: Optional[List[Dict]] = None,
+                            recommend_questions: Optional[List[str]] = None,
+                            title: Optional[str] = None) -> str:
         try:
             prompt_session = PromptSession(
                 title=title,
                 attack_detection_id=ObjectId(attack_detection_id) if attack_detection_id else None,
-                recommend_history=recommend_history,
-                recommend_questions=recommend_questions,
+                recommend_history=recommend_history or [],
+                recommend_questions=recommend_questions or [],
                 user_id=user_id,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             result = await self.mongodb_engine.save(prompt_session)
+            logger.info(f"Prompt session created successfully for user_id: {user_id}, session_id: {result.id}")
             return result.id
         except Exception as e:
             logger.error(
-                f"Error creating prompt session. Title: '{title}', "
-                f"Attack Detection ID: '{attack_detection_id}', "
-                f"Recommend History: '{recommend_history}', "
-                f"Recommend Questions: '{recommend_questions}', "
-                f"Error: {str(e)}"
+                f"Error creating prompt session. User ID: '{user_id}', Title: '{title}', "
+                f"Attack Detection ID: '{attack_detection_id}', Error: {str(e)}"
             )
             raise HTTPException(status_code=500, detail=f"Failed to create a prompt session: {str(e)}")
 

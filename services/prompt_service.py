@@ -150,6 +150,8 @@ class PromptService:
             title_prompt.append({"role": "user", "content": user_question})
             title = await self.gpt_service.get_response(title_prompt, json_format=False)
             await self.prompt_repository.save_title(prompt_session_id, title)
+        else:
+            pass
 
     def _create_stream_response(self, status="processing", type=None, data=None) -> str:
         try:
@@ -168,112 +170,116 @@ class PromptService:
             raise HTTPException(status_code=500, detail="Failed to create stream response.")
 
     async def process_prompt(self, user_question: str, prompt_session_id: str, user_id: str, is_attack=False):
-        user_content = (
-            "현재 날짜와 시간은 {time}입니다. "
-            "이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {question} "
-            "답변은 반드시 json 형식으로 나옵니다. "
-            "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
-        ).format(
-            time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            question=user_question
-        )
-        user_query = {"role": "user", "content": user_content}
-        query = None
-        history = await self._load_chat_history(prompt_session_id)  # 이전 대화 내역 가져오기
-
-        # 분류기 페르소나 로직 수행
         try:
-            persona_type = await self._classify_persona(user_query, history)
-            logger.info(f"Persona type classified: {persona_type}")
-        except Exception as e:
-            logger.error(f"Error during persona classification: {e}")
-            raise HTTPException(status_code=500, detail="Persona classification failed.")
-
-        # 분류기 결과에 따른 페르소나 로직 수행
-        if persona_type in ["ES", "DB"]:
-            if persona_type == "ES":
-                query, query_result = await self._es_persona(user_query, history)
-                yield self._create_stream_response(type="ESQuery", data=query)
-                yield self._create_stream_response(type="ESResult", data=query_result)
-                persona_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
-            elif persona_type == "DB":
-                query, query_result = await self._db_persona(user_query, history, user_id)
-                yield self._create_stream_response(type="DBQuery", data=query)
-                yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
-                persona_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
-
-            summary_prompt = self.init_prompts["Summary"]
-            summary_prompt.append({
-                "role": "user",
-                "content": f"{user_content}\n{persona_type} 응답: {persona_response}"
-            })
-
-            # 응답 페르소나
-            assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk
-                yield self._create_stream_response(type="Summary", data=chunk)
-        elif persona_type == "Policy":
-            prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
-            if not prompt_session:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Prompt session with ID: {prompt_session_id} does not exist or could not be retrieved."
-                )
-
-            attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
-            if not attack_detection:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Attack detection data missing or incomplete for ID: {prompt_session.attack_detection_id}"
-                )
-
-            least_privilege_policy_data = attack_detection.least_privilege_policy
-            if not least_privilege_policy_data:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Least privilege policy not found in attack detection with ID: {prompt_session.attack_detection_id}"
-                )
-
-            least_privilege_policy = least_privilege_policy_data.get("least_privilege_policy")
-            original_policy = least_privilege_policy_data.get("original_policy")
-
-            policy_content = self.init_prompts["Policy"][0]["content"].format(
-                original_policy=json.dumps(filter_original_policy(original_policy, least_privilege_policy), indent=2),
-                least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
+            user_content = (
+                "현재 날짜와 시간은 {time}입니다. "
+                "이 시간에 맞춰서 작업을 진행해주세요. 사용자의 자연어 질문: {question} "
+                "답변은 반드시 json 형식으로 나옵니다. "
+                "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
+            ).format(
+                time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                question=user_question
             )
+            user_query = {"role": "user", "content": user_content}
+            query = None
+            history = await self._load_chat_history(prompt_session_id)  # 이전 대화 내역 가져오기
 
-            summary_prompt = history
-            summary_prompt.append({"role": "system", "content": policy_content})
-            summary_prompt.append({"role": "user", "content": user_question})
+            # 분류기 페르소나 로직 수행
+            try:
+                persona_type = await self._classify_persona(user_query, history)
+                logger.info(f"Persona type classified: {persona_type}")
+            except Exception as e:
+                logger.error(f"Error during persona classification: {e}")
+                raise HTTPException(status_code=500, detail="Persona classification failed.")
 
-            # 응답 페르소나
-            assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk
-                yield self._create_stream_response(type="Summary", data=chunk)
-        elif persona_type == "Normal":
-            summary_prompt = history
-            summary_prompt.append({"role": "user", "content": user_question})
+            # 분류기 결과에 따른 페르소나 로직 수행
+            if persona_type in ["ES", "DB"]:
+                if persona_type == "ES":
+                    query, query_result = await self._es_persona(user_query, history)
+                    yield self._create_stream_response(type="ESQuery", data=query)
+                    yield self._create_stream_response(type="ESResult", data=query_result)
+                    persona_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
+                elif persona_type == "DB":
+                    query, query_result = await self._db_persona(user_query, history, user_id)
+                    yield self._create_stream_response(type="DBQuery", data=query)
+                    yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+                    persona_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
 
-            # 응답 페르소나
-            assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk
-                yield self._create_stream_response(type="Summary", data=chunk)
-        else:
-            raise HTTPException(status_code=500, detail="Failed Classify.")
+                summary_prompt = self.init_prompts["Summary"]
+                summary_prompt.append({
+                    "role": "user",
+                    "content": f"{user_content}\n{persona_type} 응답: {persona_response}"
+                })
 
-        # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
-        if is_attack:
-            recomm_questions = await self._create_recommend_questions(prompt_session_id, user_question, assistant_response)
-            yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
+                # 응답 페르소나
+                assistant_response = ""
+                async for chunk in self.gpt_service.stream_response(summary_prompt):
+                    assistant_response += chunk
+                    yield self._create_stream_response(type="Summary", data=chunk)
+            elif persona_type == "Policy":
+                prompt_session = await self.prompt_repository.find_prompt_session(prompt_session_id)
+                if not prompt_session:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Prompt session with ID: {prompt_session_id} does not exist or could not be retrieved."
+                    )
 
-        yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
-        await self._create_prompt_title(prompt_session_id, user_question)  # 프롬프트 타이틀 생성
+                attack_detection = await self.bert_repository.find_attack_detection(prompt_session.attack_detection_id)
+                if not attack_detection:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Attack detection data missing or incomplete for ID: {prompt_session.attack_detection_id}"
+                    )
 
-        await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
-        await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
+                least_privilege_policy_data = attack_detection.least_privilege_policy
+                if not least_privilege_policy_data:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Least privilege policy not found in attack detection with ID: {prompt_session.attack_detection_id}"
+                    )
+
+                least_privilege_policy = least_privilege_policy_data.get("least_privilege_policy")
+                original_policy = least_privilege_policy_data.get("original_policy")
+
+                policy_content = self.init_prompts["Policy"][0]["content"].format(
+                    original_policy=json.dumps(filter_original_policy(original_policy, least_privilege_policy), indent=2),
+                    least_privilege_policy=json.dumps(least_privilege_policy, indent=2),
+                )
+
+                summary_prompt = history
+                summary_prompt.append({"role": "system", "content": policy_content})
+                summary_prompt.append({"role": "user", "content": user_question})
+
+                # 응답 페르소나
+                assistant_response = ""
+                async for chunk in self.gpt_service.stream_response(summary_prompt):
+                    assistant_response += chunk
+                    yield self._create_stream_response(type="Summary", data=chunk)
+            elif persona_type == "Normal":
+                summary_prompt = history
+                summary_prompt.append({"role": "user", "content": user_question})
+
+                # 응답 페르소나
+                assistant_response = ""
+                async for chunk in self.gpt_service.stream_response(summary_prompt):
+                    assistant_response += chunk
+                    yield self._create_stream_response(type="Summary", data=chunk)
+            else:
+                raise HTTPException(status_code=500, detail="Unknown persona type.")
+
+            # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
+            if is_attack:
+                recomm_questions = await self._create_recommend_questions(prompt_session_id, user_question, assistant_response)
+                yield self._create_stream_response(type="RecommendQuestions", data=recomm_questions)
+
+            yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
+            await self._create_prompt_title(prompt_session_id, user_question)  # 프롬프트 타이틀 생성
+
+            await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
+            await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
+        except Exception as e: 
+            logger.error(f"Error processing prompt for session_id: {prompt_session_id}, user_id: {user_id}, error: {str(e)}") 
+            raise HTTPException(status_code=500, detail=f"Failed to process prompt.")
 
     async def handle_chat(self, user_question: str, prompt_session_id: str, user_id: str):
         try:

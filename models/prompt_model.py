@@ -8,7 +8,7 @@ class PromptSession(Model):
     recommend_history: Optional[list[dict]] = Field(default_factory=list)
     recommend_questions: Optional[list[str]] = Field(default_factory=list)
 
-    user_id: Optional[str] = Field(default=None)
+    user_id: str
     attack_detection_id: Optional[ObjectId] = Field(default=None)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
