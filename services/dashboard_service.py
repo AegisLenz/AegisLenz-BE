@@ -8,6 +8,7 @@ from services.policy_service import PolicyService
 from services.gpt_service import GPTService
 from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
+from repositories.report_repository import ReportRepository
 from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary
 from common.logging import setup_logger
 
@@ -17,11 +18,13 @@ load_dotenv()
 
 class DashboardService:
     def __init__(self, policy_service: PolicyService = Depends(), gpt_service: GPTService = Depends(),
-                 asset_repository: AssetRepository = Depends(), bert_repository: BertRepository = Depends()):
+                 asset_repository: AssetRepository = Depends(), bert_repository: BertRepository = Depends(),
+                 report_repository: ReportRepository = Depends()):
         self.policy_service = policy_service
         self.gpt_service = gpt_service
         self.asset_repository = asset_repository
         self.bert_repository = bert_repository
+        self.report_repository = report_repository
 
         self.es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
         self.es_attack_index = os.getenv("ES_ATTACK_INDEX", "cloudtrail-attack-logs")
@@ -354,9 +357,9 @@ class DashboardService:
 
     async def get_report_check(self, user_id: str) -> ReportCheckResponseSchema:
         try:
-            reports = await self.bert_repository.find_reports_by_user_id(user_id)
+            reports = await self.report_repository.find_reports_by_user_id(user_id)
             if not reports:
-                raise HTTPException(status_code=404, detail=f"No reports found for user_id: {user_id}")
+                return ReportCheckResponseSchema(report_check=[])
             
             try:
                 report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
@@ -386,8 +389,7 @@ class DashboardService:
                 for report, line in zip(reports, report_lines)
             ]
             logger.info(f"Report check generated for user_id: {user_id}")
+            return ReportCheckResponseSchema(report_check=report_check)
         except Exception as e:
             logger.error(f"Error processing GPT response for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing report summaries.")
-
-        return ReportCheckResponseSchema(report_check=report_check)

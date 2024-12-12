@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Union
+from elastic_transport import ObjectApiResponse
 
 
-def convert_dates_in_query(query):
+def convert_dates_in_query(query: dict) -> dict:
     """
     주어진 MongoDB 쿼리에서 날짜 비교 연산자($lt, $lte, $gt, $gte)와 관련된 값이 ISO 8601 형식의 문자열이라면, 이를 datetime 객체로 변환합니다.
     """
@@ -25,21 +27,41 @@ def convert_dates_in_query(query):
     return query
 
 
-def extract_values(data):
+def parse_db_response(response: list) -> list:
     """
     재귀적으로 데이터를 탐색하여 최종 쿼리 결과 값을 추출한다.
     """
-    if isinstance(data, list):
-        # 리스트가 포함된 경우, 각 항목을 재귀적으로 처리
-        extracted = [extract_values(item) for item in data]
-        # 평탄화(flatten) 및 중복 제거
+    if isinstance(response, list):  # 리스트인 경우, 각 항목을 재귀적으로 처리
+        extracted = [parse_db_response(item) for item in response]
         return [val for sublist in extracted for val in (sublist if isinstance(sublist, list) else [sublist])]
-    elif isinstance(data, dict):
-        # 딕셔너리의 값들을 탐색
-        if len(data) == 1 and next(iter(data.values())):  # 단일 키-값 조합 처리
-            return extract_values(next(iter(data.values())))
+    elif isinstance(response, dict):  # 딕셔너리인 경우, 값들을 재귀적으로 탐색
+        if len(response) == 1 and next(iter(response.values())):
+            return parse_db_response(next(iter(response.values())))
         else:
-            return [extract_values(value) for value in data.values()]
+            return [parse_db_response(value) for value in response.values()]
+    else:  # 기본 데이터 타입 (문자열, 숫자 등) 처리
+        return response
+
+
+def parse_es_response(response: ObjectApiResponse) -> Union[dict, list]:
+    """
+    Elasticsearch 응답 데이터를 처리하여 의미 있는 결과를 반환한다.
+    """
+    if "aggregations" in response:
+        result = {}
+        for key, agg in response["aggregations"].items():
+            if "buckets" in agg:  # Bucket aggregation 처리 (terms, histogram 등)
+                result[key] = [
+                    {"key": bucket["key"], "doc_count": bucket["doc_count"]}
+                    for bucket in agg["buckets"]
+                ]
+            elif "value" in agg:  # 단일 값 aggregation 처리 (sum, avg 등)
+                result[key] = agg["value"]
+            else:  # 알려지지 않은 aggregation 처리
+                result[key] = agg
+        return result
+    elif "hits" in response and "hits" in response["hits"]:
+        documents = response["hits"]["hits"]
+        return [doc["_source"] for doc in documents if "_source" in doc]
     else:
-        # 기본값 (문자열, 숫자 등)
-        return data
+        raise ValueError(f"Unexpected Elasticsearch response structure: {response}")

@@ -3,7 +3,8 @@ from common.logging import setup_logger
 from database.mongodb_driver import mongodb
 from database.redis_driver import RedisDriver
 from services.es_service import ElasticsearchService
-from routers import user_router, prompt_router, bert_router, policy_router, dashboard_router
+from routers import user_router, prompt_router, bert_router, policy_router, dashboard_router, report_router
+
 
 logger = setup_logger()
 
@@ -16,6 +17,7 @@ app.include_router(prompt_router.router)
 app.include_router(bert_router.router)
 app.include_router(policy_router.router)
 app.include_router(dashboard_router.router)
+app.include_router(report_router.router)
 
 # Redis 및 Elasticsearch 서비스 초기화
 redis_driver = RedisDriver()
