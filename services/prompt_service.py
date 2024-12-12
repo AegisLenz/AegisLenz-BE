@@ -8,7 +8,7 @@ from services.asset_service import AssetService
 from repositories.prompt_repository import PromptRepository
 from repositories.bert_repository import BertRepository
 from repositories.asset_repository import AssetRepository
-from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema
+from schemas.prompt_schema import PromptChatStreamResponseSchema, GetPromptContentsSchema, GetPromptContentsResponseSchema, GetAllPromptResponseSchema, PromptSessionSchema
 from services.policy.filter_original_policy import filter_original_policy
 from common.logging import setup_logger
 
@@ -33,8 +33,16 @@ class PromptService:
     async def create_prompt(self, user_id: str) -> str:
         return await self.prompt_repository.create_prompt(user_id)
 
-    async def get_all_prompt(self, user_id: str) -> list:
-        return await self.prompt_repository.get_all_prompt(user_id)
+    async def get_all_prompt(self, user_id: str) -> GetAllPromptResponseSchema:
+        find_prompts = await self.prompt_repository.get_all_prompt(user_id)
+        if not find_prompts:
+            logger.warning(f"No prompts found for user_id={user_id}")
+            return GetAllPromptResponseSchema(prompts=[])
+
+        prompts = [
+            PromptSessionSchema(prompt_id=prompt.id, prompt_title=prompt.title, prompt_updated_at=prompt.updated_at)
+            for prompt in find_prompts]
+        return GetAllPromptResponseSchema(prompts=prompts)
 
     async def get_prompt_chats(self, prompt_session_id: str) -> GetPromptContentsResponseSchema:
         await self.prompt_repository.validate_prompt_session(prompt_session_id)
@@ -48,7 +56,7 @@ class PromptService:
             for chat in prompt_chats
         ]
         
-        # 공격에 대한 프롬프트 대화창인 경우 report, recommend_questions, least_privilege_policy, attack_graph 가져오기
+        # 공격에 대한 프롬프트 대화창인 경우 관련 정보 가져오기
         report, recommend_questions, least_privilege_policy, attack_graph = None, None, None, None
 
         is_attack_prompt = await self.prompt_repository.check_attack_detection_id_exist(prompt_session_id)

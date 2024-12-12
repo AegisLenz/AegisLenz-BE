@@ -63,8 +63,7 @@ class PromptRepository:
                 PromptSession,
                 PromptSession.user_id == user_id
             )
-            prompt_ids = [str(prompt.id) for prompt in prompts]
-            return prompt_ids
+            return prompts
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while fetching messages: {str(e)}")
 

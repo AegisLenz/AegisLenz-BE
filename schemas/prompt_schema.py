@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from odmantic import ObjectId, Field
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union
+from datetime import datetime
 
 
 class PromptChatRequestSchema(BaseModel):
@@ -40,13 +41,19 @@ class CreatePromptResponseSchema(BaseModel):
         }
 
 
+class PromptSessionSchema(BaseModel):
+    prompt_id: ObjectId
+    prompt_title: Optional[str]
+    prompt_updated_at: datetime
+
+
 class GetAllPromptResponseSchema(BaseModel):
-    prompt_ids: List[str]
+    prompts: list[PromptSessionSchema]
 
     class Config:
         json_schema_extra = {
             "example": {
-                "prompt_ids": [
+                "prompts": [
                     "507f1f77bcf86cd799439011",
                     "507f191e810c19729de860ea",
                     "507f1f77bcf86cd799439012"
@@ -62,8 +69,8 @@ class GetPromptContentsSchema(BaseModel):
 
 class GetPromptContentsResponseSchema(BaseModel):
     title: Optional[str] = None
-    chats: List[GetPromptContentsSchema] = Field(default_factory=list)
+    chats: list[GetPromptContentsSchema] = Field(default_factory=list)
     report: Optional[str] = None
     attack_graph: Optional[str] = None
-    least_privilege_policy: Optional[Dict[str, Dict[str, List[Any]]]] = Field(default_factory=dict)
-    init_recommend_questions: Optional[List[str]] = Field(default_factory=list)
+    least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
+    init_recommend_questions: Optional[list[str]] = Field(default_factory=list)
