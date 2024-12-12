@@ -54,9 +54,11 @@ class GetAllPromptResponseSchema(BaseModel):
         json_schema_extra = {
             "example": {
                 "prompts": [
-                    "507f1f77bcf86cd799439011",
-                    "507f191e810c19729de860ea",
-                    "507f1f77bcf86cd799439012"
+                    {
+                        "prompt_id": "675827b77f337c71ba90e62a",
+                        "prompt_title": "['T1087 - Account Discovery', 'TA0007 - Discovery'] 공격 탐지",
+                        "prompt_updated_at": "2024-12-10T20:44:54.261000"
+                    }
                 ]
             }
         }
