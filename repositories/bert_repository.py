@@ -34,7 +34,7 @@ class BertRepository:
             await self.mongodb_engine.save(attack_detection)
             await self.mongodb_engine.save(report)
 
-            return str(attack_detection.id)
+            return attack_detection.id
 
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))

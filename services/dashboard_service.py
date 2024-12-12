@@ -359,7 +359,7 @@ class DashboardService:
         try:
             reports = await self.report_repository.find_reports_by_user_id(user_id)
             if not reports:
-                raise HTTPException(status_code=404, detail=f"No reports found for user_id: {user_id}")
+                return ReportCheckResponseSchema(report_check=[])
             
             try:
                 report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
@@ -389,8 +389,7 @@ class DashboardService:
                 for report, line in zip(reports, report_lines)
             ]
             logger.info(f"Report check generated for user_id: {user_id}")
+            return ReportCheckResponseSchema(report_check=report_check)
         except Exception as e:
             logger.error(f"Error processing GPT response for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing report summaries.")
-
-        return ReportCheckResponseSchema(report_check=report_check)
