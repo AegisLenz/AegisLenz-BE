@@ -1,5 +1,10 @@
 from fastapi import Depends
+from odmantic import ObjectId
 from repositories.user_repository import UserRepository
+from schemas.user_schema import GetAllBookmarkResponseSchema, BookmarkSchema
+from common.logging import setup_logger
+
+logger = setup_logger()
 
 
 class UserService:
@@ -18,8 +23,17 @@ class UserService:
     async def create_bookmark(self, user_id: str, question: str):
         return await self.user_repository.create_bookmark(user_id, question)
 
-    async def get_bookmark(self, user_id: str) -> list:
-        return await self.user_repository.find_bookmark(user_id)
+    async def get_all_bookmark(self, user_id: str) -> GetAllBookmarkResponseSchema:
+        find_bookmarks = await self.user_repository.find_all_bookmark(user_id)
+        if not find_bookmarks:
+            logger.warning(f"No bookmarks found for user_id={user_id}")
+            return GetAllBookmarkResponseSchema(bookmarks=[])
 
-    async def delete_bookmark(self, user_id: str, question: str):
-        return await self.user_repository.delete_bookmark(user_id, question)
+        bookmarks = [
+            BookmarkSchema(bookmark_id=bookmark.id, question=bookmark.question)
+            for bookmark in find_bookmarks
+        ]
+        return GetAllBookmarkResponseSchema(bookmarks=bookmarks)
+
+    async def delete_bookmark(self, bookmark_id: ObjectId):
+        return await self.user_repository.delete_bookmark(bookmark_id)

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from odmantic import ObjectId
 
 
 class CreateBookmarkRequestSchema(BaseModel):
@@ -12,27 +13,22 @@ class CreateBookmarkRequestSchema(BaseModel):
         }
 
 
+class BookmarkSchema(BaseModel):
+    bookmark_id: ObjectId
+    question: str
+
+
 class GetAllBookmarkResponseSchema(BaseModel):
-    bookmarks: list
+    bookmarks: list[BookmarkSchema]
 
     class Config:
         json_schema_extra = {
             "example": {
                 "bookmarks": [
-                    "사용자 질문 예시1",
-                    "사용자 질문 예시2",
-                    "사용자 질문 예시3"
+                    {
+                        "bookmark_id": "675ae4a99b177f9da358032d",
+                        "question": "사용자 질문 예시"
+                    }
                 ]
-            }
-        }
-
-
-class DeleteBookmarkRequestSchema(BaseModel):
-    question: str
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "question": "사용자 질문 예시",
             }
         }
