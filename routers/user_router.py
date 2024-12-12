@@ -26,10 +26,8 @@ async def create_bookmark(user_id: str = "1", request: CreateBookmarkRequestSche
     return await user_service.create_bookmark(user_id, request.question)
 
 @router.get("/bookmark", response_model=GetAllBookmarkResponseSchema)
-async def get_bookmarks(user_id: str = "1", user_service: UserService = Depends()):
-    bookmarks = await user_service.get_bookmarks(user_id)
-    response = GetAllBookmarkResponseSchema(bookmarks=bookmarks)
-    return response
+async def get_all_bookmark(user_id: str = "1", user_service: UserService = Depends()):
+    return await user_service.get_all_bookmark(user_id)
 
 @router.delete("/bookmark/{bookmark_id}")
 async def delete_bookmark(bookmark_id: ObjectId, user_service: UserService = Depends()):

@@ -79,15 +79,12 @@ class UserRepository:
             logger.error(f"Error adding bookmark. User ID: '{user_id}', Question: '{question}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to add bookmark for user ID '{user_id}': {str(e)}")
 
-    async def find_bookmarks(self, user_id: str):
+    async def find_all_bookmark(self, user_id: str):
         try:
             bookmarks = await self.mongodb_engine.find(
                 Bookmark,
                 Bookmark.user_id == user_id
             )
-            if not bookmarks:
-                logger.error(f"Bookmark with ID '{user_id}' not found.")
-                raise HTTPException(status_code=404, detail=f"Bookmark with ID '{user_id}' not found")
             return bookmarks
         except Exception as e:
             logger.error(f"Error retrieving bookmarks for user ID '{user_id}', Error: {e}")
