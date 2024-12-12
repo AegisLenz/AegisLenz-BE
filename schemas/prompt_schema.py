@@ -74,5 +74,5 @@ class GetPromptContentsResponseSchema(BaseModel):
     chats: list[GetPromptContentsSchema] = Field(default_factory=list)
     report: Optional[str] = None
     attack_graph: Optional[str] = None
-    least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
+    least_privilege_policy: Optional[dict[str, dict[str, list[object]]]] = Field(default_factory=dict)
     init_recommend_questions: Optional[list[str]] = Field(default_factory=list)
