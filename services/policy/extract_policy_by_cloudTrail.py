@@ -6,10 +6,11 @@ from services.policy.ec2_policy_mapper import ec2_policy_mapper
 from services.policy.iam_policy_mapper import iam_policy_mapper
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from datetime import datetime, timedelta, timezone
+from common.logging import setup_logger
 import json
 
 load_dotenv()
-
+logger = setup_logger()
 
 def clustering_by_username(logs):
     logs = load_json(logs).get("Records",[])
@@ -183,11 +184,11 @@ def extract_policy_by_cloudTrail():
 
     logs = fetch_all_logs_with_scroll()
     if not isinstance(logs, list):
-        print("Error: The log file does not contain a valid list of log entries.")
+        logger.error("The log file does not contain a valid list of log entries.")
         return []
     
     if not logs:
-        print("Error: No logs were retrieved. The operation will be terminated.")
+        logger.error("No logs were retrieved. The operation will be terminated.")
         return []
     
     normal_log = []
