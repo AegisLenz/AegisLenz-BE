@@ -74,7 +74,6 @@ def ec2_map_resource(policy_data, log):
 
     for statement in policy_data.get("policy", []):
         for resource in statement.get("Resource", []):
-            original_resource = resource
             for key, value in mapping.items():
                 if value:
                     resource = resource.replace(f"{{{key}}}", value)
