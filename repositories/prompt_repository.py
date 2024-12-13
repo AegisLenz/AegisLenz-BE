@@ -202,3 +202,14 @@ class PromptRepository:
             await self.mongodb_engine.save(prompt_session)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An error occurred while save title: {str(e)}")
+
+    async def find_prompt_session_by_attack_detection_id(self, attack_detection_id: ObjectId):
+        try:
+            prompt_session = await self.mongodb_engine.find_one(
+                PromptSession,
+                PromptSession.attack_detection_id == ObjectId(attack_detection_id)
+            )
+            return prompt_session
+        except Exception as e:
+            logger.error(f"Error fetching prompt session for attack_detection_id={attack_detection_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch prompt session: {str(e)}")

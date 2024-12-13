@@ -1,5 +1,6 @@
 import os
-import boto3
+import asyncio
+from aioboto3 import Session
 from fastapi import Depends, HTTPException
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
@@ -9,6 +10,7 @@ from services.gpt_service import GPTService
 from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
 from repositories.report_repository import ReportRepository
+from repositories.prompt_repository import PromptRepository
 from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary
 from common.logging import setup_logger
 
@@ -19,12 +21,13 @@ load_dotenv()
 class DashboardService:
     def __init__(self, policy_service: PolicyService = Depends(), gpt_service: GPTService = Depends(),
                  asset_repository: AssetRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 report_repository: ReportRepository = Depends()):
+                 report_repository: ReportRepository = Depends(), prompt_repository: PromptRepository = Depends()):
         self.policy_service = policy_service
         self.gpt_service = gpt_service
         self.asset_repository = asset_repository
         self.bert_repository = bert_repository
         self.report_repository = report_repository
+        self.prompt_repository = prompt_repository
 
         self.es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
         self.es_attack_index = os.getenv("ES_ATTACK_INDEX", "cloudtrail-attack-logs")
@@ -40,13 +43,11 @@ class DashboardService:
             raise HTTPException(status_code=500, detail="Failed to initialize Elasticsearch client.")
 
         try:
-            self.session = boto3.Session(
+            self.session = Session(
                 aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
                 aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
                 region_name=os.getenv("AWS_REGION")
             )
-            self.iam_client = self.session.client('iam')
-            self.ec2_client = self.session.client('ec2')
         except Exception as e:
             logger.error(f"AWS session initialization error: {e}")
             raise HTTPException(status_code=500, detail="Failed to initialize AWS session.")
@@ -236,119 +237,135 @@ class DashboardService:
             logger.error(f"Error calculating score for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to calculate user score.")
 
-    def _calculate_inactive_users(self, threshold_days=90) -> int:
-        """90일 동안 비활성화된 사용자 수 반환"""
+    async def _get_inactive_users(self, threshold_days=90) -> int:
+        """90일 동안 비활성화된 사용자의 UserName 반환"""
         try:
+
             now = datetime.now(timezone.utc)
             threshold_date = now - timedelta(days=threshold_days)
 
-            inactive_count = 0
-            users = self.iam_client.list_users()
+            inactive_users = []
+            async with self.session.client('iam') as iam_client:
+                users = await iam_client.list_users()
 
-            for user in users.get('Users', []):
-                username = user['UserName']
-                is_inactive = True
+                for user in users.get('Users', []):
+                    username = user['UserName']
+                    is_inactive = True
 
-                # Check PasswordLastUsed
-                user_details = self.iam_client.get_user(UserName=username)
-                password_last_used = user_details.get('User', {}).get('PasswordLastUsed')
-                if password_last_used and password_last_used > threshold_date:
-                    is_inactive = False
-
-                # Check accessKeyLastUsed
-                access_keys = self.iam_client.list_access_keys(UserName=username)
-                for key in access_keys.get('AccessKeyMetadata', []):
-                    access_key_last_used = self.iam_client.get_access_key_last_used(AccessKeyId=key['AccessKeyId']).get('AccessKeyLastUsed', {}).get('LastUsedDate')
-                    if access_key_last_used and access_key_last_used > threshold_date:
+                    # Check PasswordLastUsed
+                    user_details = await iam_client.get_user(UserName=username)
+                    password_last_used = user_details.get('User', {}).get('PasswordLastUsed')
+                    if password_last_used and password_last_used > threshold_date:
                         is_inactive = False
 
-                if is_inactive:
-                    inactive_count += 1
+                    # Check accessKeyLastUsed
+                    access_keys = await iam_client.list_access_keys(UserName=username)
+                    for key in access_keys.get('AccessKeyMetadata', []):
+                        access_key_last_used_response = await iam_client.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])
+                        access_key_last_used = access_key_last_used_response.get('AccessKeyLastUsed', {}).get('LastUsedDate')
+                        if access_key_last_used and access_key_last_used > threshold_date:
+                            is_inactive = False
 
-            return inactive_count
+                    if is_inactive:
+                        inactive_users.append(username)
+
+                return inactive_users
         except Exception as e:
-            logger.error(f"Error calculating inactive users: {e}")
-            raise HTTPException(status_code=500, detail="Failed to calculate inactive users.")
+            logger.error(f"Error retrieving inactive users: {e}")
+            raise HTTPException(status_code=500, detail="Failed to retrieve inactive users.")
 
-    def _get_users_without_mfa_count(self) -> int:
-        """MFA가 설정되지 않은 사용자 수 반환"""
+    async def _get_users_without_mfa(self) -> int:
+        """MFA가 설정되지 않은 사용자의 UserName 반환"""
         try:
-            users_without_mfa_count = 0
-            users = self.iam_client.list_users()
+            users_without_mfa = []
+            async with self.session.client('iam') as iam_client:
+                users = await iam_client.list_users()
 
-            for user in users.get('Users', []):
-                username = user['UserName']
+                for user in users.get('Users', []):
+                    username = user['UserName']
 
-                # MFA 장치 조회
-                mfa_devices = self.iam_client.list_mfa_devices(UserName=username)
-                if not mfa_devices.get('MFADevices'):  # MFA 장치가 없는 경우
-                    users_without_mfa_count += 1
-            
-            return users_without_mfa_count
+                    # MFA 장치 조회
+                    mfa_devices = await iam_client.list_mfa_devices(UserName=username)
+                    if not mfa_devices.get('MFADevices'):  # MFA 장치가 없는 경우
+                        users_without_mfa.append(username)
+                
+                return users_without_mfa
         except Exception as e:
-            logger.error(f"Error counting users without MFA: {e}")
-            raise HTTPException(status_code=500, detail="Failed to count users without MFA.")
+            logger.error(f"Error retrieving users without MFA: {e}")
+            raise HTTPException(status_code=500, detail="Failed to retrieve users without MFA.")
 
-    def _check_root_mfa_enabled_count(self) -> int:
+    async def _check_root_mfa_enabled(self) -> int:
         """루트 계정의 MFA 설정 여부 반환 (0: 미설정, 1: 설정됨)"""
         try:
-            summary = self.iam_client.get_account_summary()
-            mfa_enabled = summary['SummaryMap'].get('AccountMFAEnabled', 0)
-            return 0 if mfa_enabled == 0 else 1
+            async with self.session.client('iam') as iam_client:
+                summary = await iam_client.get_account_summary()
+                mfa_enabled = summary['SummaryMap'].get('AccountMFAEnabled', 0)
+                return 0 if mfa_enabled == 0 else 1
         except Exception as e:
             logger.error(f"Error checking root MFA status: {e}")
             raise HTTPException(status_code=500, detail="Failed to check root MFA status.")
 
-    def _count_risky_security_groups(self) -> int:
+    async def _count_risky_security_groups(self) -> int:
         """기본 보안 그룹에서 위험한 규칙 수 반환"""
         try:
             risky_count = 0
-            response = self.ec2_client.describe_security_groups()
-            security_groups = response['SecurityGroups']
+            async with self.session.client('ec2') as ec2_client:
+                response = await ec2_client.describe_security_groups()
+                security_groups = response['SecurityGroups']
 
-            for sg in security_groups:
-                for ingress_rule in sg.get('IpPermissions', []):
-                    for ip_range in ingress_rule.get('IpRanges', []):
-                        if ip_range.get('CidrIp') == '0.0.0.0/0':
-                            risky_count += 1
-                for egress_rule in sg.get('IpPermissionsEgress', []):
-                    for ip_range in egress_rule.get('IpRanges', []):
-                        if ip_range.get('CidrIp') == '0.0.0.0/0':
-                            risky_count += 1
+                for sg in security_groups:
+                    for ingress_rule in sg.get('IpPermissions', []):
+                        for ip_range in ingress_rule.get('IpRanges', []):
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                risky_count += 1
+                    for egress_rule in sg.get('IpPermissionsEgress', []):
+                        for ip_range in egress_rule.get('IpRanges', []):
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                risky_count += 1
 
-            return risky_count
+                return risky_count
         except Exception as e:
             logger.error(f"Error counting risky security groups: {e}")
             raise HTTPException(status_code=500, detail="Failed to count risky security group rules.")
 
+    def _extract_excessive_policies(self, least_privilege_policy: dict) -> set[str]:
+        """과도한 정책이 적용된 사용자 식별"""
+        identity_with_excessive_policies = set()
+        least_privilege_data = least_privilege_policy.get("least_privilege_policy", {})
+        
+        if not isinstance(least_privilege_data, dict):
+            logger.warning("Invalid data format for least_privilege_policy.")
+            return identity_with_excessive_policies
+
+        for user, policies in least_privilege_data.items():
+            if not isinstance(policies, list):
+                logger.warning(f"Invalid policy format for user {user}. Skipping.")
+                continue
+
+            for policy in policies:
+                policy_name = policy.get('PolicyName')
+                if policy_name:
+                    identity_with_excessive_policies.add(policy_name)
+                else:
+                    logger.warning(f"Policy for user {user} is missing 'PolicyName'. Skipping.")
+        
+        return identity_with_excessive_policies
+
     async def get_risks(self, user_id: str) -> RisksResponseSchema:
         try:
-            # Inactive users
-            inactive_users_count = self._calculate_inactive_users()
-            logger.debug(f"Inactive users count: {inactive_users_count}")
-
-            # Excessive policies
-            least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-            identity_with_excessive_policies = len(least_privilege_policy["least_privilege_policy"])
-            logger.debug(f"Identities with excessive policies: {identity_with_excessive_policies}")
-
-            # MFA Not Enabled for Users
-            users_without_mfa_count = self._get_users_without_mfa_count()
-            logger.debug(f"Users without MFA: {users_without_mfa_count}")
-
-            # MFA Not Enabled for Root User
-            root_mfa_count = self._check_root_mfa_enabled_count()
-            logger.debug(f"Root MFA enabled count: {root_mfa_count}")
-
-            # Default Security Groups Allow Traffic
-            risky_security_groups_count = self._count_risky_security_groups()
-            logger.debug(f"Risky security groups count: {risky_security_groups_count}")
+            inactive_users, least_privilege_policy, users_without_mfa, is_root_mfa, risky_security_groups_count = await asyncio.gather(
+                self._get_inactive_users(),
+                self.policy_service.generate_least_privilege_policy(user_id),
+                self._get_users_without_mfa(),
+                self._check_root_mfa_enabled(),
+                self._count_risky_security_groups()
+            )
 
             return RisksResponseSchema(
-                inactive_identities=inactive_users_count,
-                identity_with_excessive_policies=identity_with_excessive_policies,
-                MFA_not_enabled_for_users=users_without_mfa_count,
-                MFA_not_enabled_for_root_user=root_mfa_count,
+                inactive_identities=inactive_users,
+                identity_with_excessive_policies=self._extract_excessive_policies(least_privilege_policy),
+                MFA_not_enabled_for_users=users_without_mfa,
+                MFA_not_enabled_for_root_user=is_root_mfa,
                 default_security_groups_allow_traffic=risky_security_groups_count
             )
         except Exception as e:
@@ -370,8 +387,6 @@ class DashboardService:
                 raise HTTPException(status_code=500, detail="Failed to format GPT prompt.")
 
             report_check_prompt = [{"role": "system", "content": report_check_content}]
-            logger.debug(f"Generated GPT prompt for user_id: {user_id}")
-
             response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
             logger.debug(f"GPT response received for user_id: {user_id}")
         except Exception as e:
@@ -384,10 +399,13 @@ class DashboardService:
                 logger.error("Mismatch between GPT response and reports count.")
                 raise HTTPException(status_code=500, detail="Mismatch between GPT response and reports.")
 
-            report_check = [
-                ReportSummary(report_id=report.id, summary=line)
-                for report, line in zip(reports, report_lines)
-            ]
+            report_check = []
+            for report, line in zip(reports, report_lines):
+                prompt_session = await self.prompt_repository.find_prompt_session_by_attack_detection_id(report.attack_detection_id)
+                if not prompt_session:
+                    raise HTTPException(status_code=404, detail="Prompt session not found")
+                report_check.append(ReportSummary(report_id=report.id, prompt_session_id=prompt_session.id, summary=line))
+
             logger.info(f"Report check generated for user_id: {user_id}")
             return ReportCheckResponseSchema(report_check=report_check)
         except Exception as e:
