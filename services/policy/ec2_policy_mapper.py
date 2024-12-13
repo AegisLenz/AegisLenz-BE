@@ -5,7 +5,8 @@ def ec2_map_resource(policy_data, log):
     mapping = {
         "account_id": (log.get("userIdentity") or {}).get("accountId", None),
         "peering_connection_id": (log.get("responseElements") or {}).get("vpcPeeringConnectionId", None),
-        "vpc_id": log.get("vpcId", ""),
+        "vpc_id": ((log.get("requestParameters") or {}).get("vpcSet", {}).get("items", [{}])[0].get("vpcId", None)
+                if isinstance((log.get("requestParameters") or {}).get("vpcSet"), dict) else None),
         "region": log.get("awsRegion", None),
         "transit_gateway_multicast_domain_id": (log.get("requestParameters") or {}).get("TransitGatewayMulticastDomainId", None),
         "service_id": (log.get("requestParameters") or {}).get("ServiceId", None),
@@ -15,9 +16,12 @@ def ec2_map_resource(policy_data, log):
         "bucket_name": (log.get("requestParameters") or {}).get("BucketName", None),
         "attachment_id": (log.get("requestParameters") or {}).get("TransitGatewayAttachmentId", None),
         "route_table_id": (log.get("requestParameters") or {}).get("RouteTableId", None),
-        "subnet_id": (log.get("requestParameters") or {}).get("SubnetId", None),
-        "volume_id": (log.get("requestParameters") or {}).get("VolumeId", None),
-        "image_id": (log.get("requestParameters") or {}).get("ImageId", None),
+        "subnet_id": ((log.get("requestParameters") or {}).get("subnetSet", {}).get("items", [{}])[0].get("subnetId", None)
+                    if isinstance((log.get("requestParameters") or {}).get("subnetSet"), dict) else None),
+        "volume_id": ((log.get("requestParameters") or {}).get("volumeSet", {}).get("items", [{}])[0].get("volumeId", None)
+                    if isinstance((log.get("requestParameters") or {}).get("volumeSet"), dict) else None),
+        "image_id": ((log.get("requestParameters") or {}).get("imagesSet", {}).get("items", [{}])[0].get("imageId", None)
+                    if isinstance((log.get("requestParameters") or {}).get("imagesSet"), dict) else None),
         "launch_template_id": (log.get("requestParameters") or {}).get("LaunchTemplateId", None),
         "key_pair_name": (log.get("requestParameters") or {}).get("KeyName", None),
         "ipv6_pool_id": (log.get("requestParameters") or {}).get("Ipv6PoolId", None),
@@ -26,15 +30,16 @@ def ec2_map_resource(policy_data, log):
         "instance_profile_name": (log.get("requestParameters") or {}).get("IamInstanceProfile", {}).get("Arn", None),
         "local_gateway_route_table_id": (log.get("requestParameters") or {}).get("LocalGatewayRouteTableId", None),
         "network_interface_id": (log.get("requestParameters") or {}).get("NetworkInterfaceId", None),
-        "object_key": (log.get("requestParameters") or {}).get("Key", None),
+        "object_key": (log.get("requestParameters") or {}).get("key", None),
+        "object_key_prefix": (log.get("requestParameters") or {}).get("keyPrefix", None),
         "customer_gateway_id": (log.get("requestParameters") or {}).get("CustomerGatewayId", None),
-        "parameter_name": (log.get("requestParameters") or {}).get("Name", None),
+        "parameter_name": (log.get("requestParameters") or {}).get("filterSet", {}).get("items", [{}])[0].get("name", None),
         "instance_id": (
-            (log.get("requestParameters") or {}).get("InstanceId") or
+            (log.get("requestParameters") or {}).get("instanceId") or
             ((log.get("requestParameters") or {}).get("instancesSet", {}).get("items", [{}])[0].get("instanceId", None)
-             if isinstance((log.get("requestParameters") or {}).get("instancesSet"), dict) else None) or
+            if isinstance((log.get("requestParameters") or {}).get("instancesSet"), dict) else None) or
             ((log.get("responseElements") or {}).get("instancesSet", {}).get("items", [{}])[0].get("instanceId", None)
-             if isinstance((log.get("responseElements") or {}).get("instancesSet"), dict) else None)
+            if isinstance((log.get("responseElements") or {}).get("instancesSet"), dict) else None)
         ),
         "snap_id": (log.get("requestParameters") or {}).get("SnapshotId", None),
         "snapshot_id": (log.get("requestParameters") or {}).get("SnapshotId", None),
@@ -56,9 +61,8 @@ def ec2_map_resource(policy_data, log):
         "certificate_authority_id": (log.get("requestParameters") or {}).get("CertificateAuthorityId", None),
         "bundle_task_id": (log.get("requestParameters") or {}).get("BundleId", None),
         "network_acl_id": (log.get("requestParameters") or {}).get("NetworkAclId", None),
-        "reserved_instances_listing_id": (log.get("requestParameters") or {}).get("ReservedInstancesListingId", None),
-        "traffic_mirror_filtert_id": (log.get("requestParameters") or {}).get("TrafficMirrorFiltertId", None)
-    }
+        "reserved_instances_listing_id": (log.get("requestParameters") or {}).get("ReservedInstancesListingId", None)
+}
 
     resource_list = []
     resources = log.get('resources', [])
@@ -80,7 +84,7 @@ def ec2_map_resource(policy_data, log):
             else:
                 resource_list.append(resource)
     
-    return resource_list    
+    return resource_list
 
 def ec2_policy_mapper(log, policy_data):
     resource_list = ec2_map_resource(policy_data, log)
