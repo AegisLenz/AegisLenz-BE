@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from services.policy.common_utils import load_json, merge_policies, map_etc
 from services.policy.s3_policy_mapper import s3_policy_mapper
@@ -10,6 +11,8 @@ from common.logging import setup_logger
 import json
 
 load_dotenv()
+
+
 logger = setup_logger()
 
 def clustering_by_username(logs):
@@ -128,7 +131,7 @@ def fetch_all_logs_with_scroll():
                 break
 
             logs.extend([hit["_source"] for hit in hits])
-        formatted_logs = {"Records": logs}
+        formatted_logs = {"Records": logs}        
         return formatted_logs
 
     except es_exceptions.ConnectionError as e:
@@ -225,4 +228,5 @@ def extract_policy_by_cloudTrail():
         if user_name not in policies:
             policies[user_name] = []
         policies[user_name].append(final_policy)
+        print(policies)
     return policies

@@ -45,4 +45,4 @@ def comparePolicy(userPolicy, policy_by_cloudTrail):
                 if not matched:
                     should_remove_action.add(action)
 
-    return should_remove_action
+    return list(should_remove_action)
