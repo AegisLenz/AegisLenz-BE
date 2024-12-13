@@ -54,9 +54,9 @@ class ScoreResponseSchema(BaseModel):
 
 
 class RisksResponseSchema(BaseModel):
-    inactive_identities: int
-    identity_with_excessive_policies: int
-    MFA_not_enabled_for_users: int
+    inactive_identities: list[str]
+    identity_with_excessive_policies: list[str]
+    MFA_not_enabled_for_users: list[str]
     MFA_not_enabled_for_root_user: int
     default_security_groups_allow_traffic: int
 
@@ -74,6 +74,7 @@ class RisksResponseSchema(BaseModel):
 
 class ReportSummary(BaseModel):
     report_id: ObjectId
+    prompt_session_id: ObjectId
     summary: str
 
 
