@@ -11,8 +11,8 @@ import json
 load_dotenv()
 
 
-def clustering_by_username(file_path):
-    logs = load_json(file_path).get("Records",[])
+def clustering_by_username(logs):
+    logs = load_json(logs).get("Records",[])
     cluster = {}
     for log in logs:
         userIdentity = log.get("userIdentity",{})
@@ -33,6 +33,7 @@ def fetch_all_logs_with_scroll():
 
     es_host = os.getenv("ES_HOST")
     es_port = os.getenv("ES_PORT")
+    es_index = os.getenv('ES_INDEX')
 
     if not es_host or not es_port:
         raise ValueError("ES_HOST and ES_PORT are not set in the .env file.")
@@ -115,7 +116,7 @@ def fetch_all_logs_with_scroll():
     }
 
     try:
-        response = es.search(index="cloudtrail-logs-*", body=query, scroll="1m")
+        response = es.search(index=es_index, body=query, scroll="1m")
         scroll_id = response["_scroll_id"]
         logs = [hit["_source"] for hit in response["hits"]["hits"]]
 
