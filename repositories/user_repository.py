@@ -1,3 +1,4 @@
+import json
 from fastapi import HTTPException
 from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone
@@ -35,6 +36,7 @@ class UserRepository:
             logger.error(f"Error retrieving assets for user ID '{user_id}', Asset Type: '{asset_type}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred while retrieving assets for user ID '{user_id}'. Please try again later.")
     
+
     async def get_user_policies(self, user_id: str):
         try:
             user_asset = await self.mongodb_engine.find_one(
@@ -53,6 +55,7 @@ class UserRepository:
         except Exception as e:
             logger.error(f"Error retrieving policies for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve user policies for user ID '{user_id}': {str(e)}")
+
 
     async def create_bookmark(self, user_id: str, question: str):
         try:
