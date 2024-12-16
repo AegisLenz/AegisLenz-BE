@@ -190,7 +190,7 @@ class PromptService:
                 elif isinstance(data, str):
                     data = data.replace('\"', '')
                 elif isinstance(data, list):
-                    pass
+                    data = [json.dumps(item, ensure_ascii=False) if isinstance(item, dict) else item for item in data]
 
             response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
             return json.dumps(response.dict(), ensure_ascii=False) + "\n"
