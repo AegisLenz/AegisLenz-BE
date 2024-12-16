@@ -1,4 +1,5 @@
 import os
+import json
 import openai
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -28,7 +29,8 @@ class GPTService:
             "InitReport": "reportPr_init.md",
             "Recommend": "recomm.txt",
             "Graph": "graphPr.txt",
-            "ReportCheck": "reportcheck.txt"
+            "ReportCheck": "reportcheck.txt",
+            "Dashboard": "DashPr.txt"
         }
 
         init_prompts = {}
@@ -53,9 +55,10 @@ class GPTService:
         choices = getattr(chunk, "choices", None)
         return choices[0].delta.content if choices and choices[0].delta.content else None
 
-    async def get_response(self, messages, json_format=True, recomm=False):
+    async def get_response(self, messages, json_format=True, recomm=False, response_format=None):
         try:
-            response_format = {"type": "json_object"} if json_format else None
+            if not response_format:
+                response_format = {"type": "json_object"} if json_format else None
             presence_penalty = 1.5 if recomm else 0
             
             response = self.gpt_client.chat.completions.create(
@@ -83,3 +86,12 @@ class GPTService:
         except Exception as e:
             logger.error(f"Error during streaming GPT response: {e}")
             raise HTTPException(status_code=500, detail="GPT streaming API error")
+
+    def _load_meta_schema(self, schema_path: str) -> dict:
+        try:
+            with open(schema_path, "r", encoding="utf-8") as schema_file:
+                return json.load(schema_file)
+        except FileNotFoundError:
+            raise RuntimeError(f"Schema file not found: {schema_path}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format in schema file: {e}")

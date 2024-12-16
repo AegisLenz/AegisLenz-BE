@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Optional, List, Dict
+from typing import Optional, Any
 from odmantic import ObjectId
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -24,8 +24,8 @@ class PromptRepository:
         self.mongodb_client = mongodb.client
 
     async def create_prompt(self, user_id: str, attack_detection_id: Optional[ObjectId] = None,
-                            recommend_history: Optional[List[Dict]] = None,
-                            recommend_questions: Optional[List[str]] = None,
+                            recommend_history: Optional[list[dict]] = None,
+                            recommend_questions: Optional[list[str]] = None,
                             title: Optional[str] = None) -> str:
         try:
             prompt_session = PromptSession(
@@ -145,14 +145,17 @@ class PromptRepository:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     
-    async def save_chat(self, prompt_session_id: str, role: str, content: str, query: Optional[str] = None) -> None:
+    async def save_chat(self, prompt_session_id: str, role: str, content: str, selected_dashboard: Optional[list] = None,
+                        persona_type: Optional[str] = None, query: Optional[str] = None, query_result: Optional[Any] = None) -> None:
         try:
-            prompt_session_id = ObjectId(prompt_session_id)
             prompt_chat = PromptChat(
-                prompt_session_id=prompt_session_id,
+                prompt_session_id=ObjectId(prompt_session_id),
                 role=role,
                 content=content,
+                selected_dashboard=selected_dashboard if selected_dashboard is not None else [],
+                persona=persona_type,
                 query=query,
+                query_result=query_result,
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             await self.mongodb_engine.save(prompt_chat)
@@ -160,7 +163,7 @@ class PromptRepository:
             # PromptSession 마지막 업데이트 시간 업데이트
             prompt_session = await self.mongodb_engine.find_one(
                 PromptSession,
-                PromptSession.id == prompt_session_id
+                PromptSession.id == ObjectId(prompt_session_id)
             )
             prompt_session.updated_at = datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             await self.mongodb_engine.save(prompt_session)

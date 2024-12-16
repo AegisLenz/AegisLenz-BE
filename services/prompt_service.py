@@ -94,17 +94,30 @@ class PromptService:
         return [{"role": h.role, "content": f"{h.content} 생성된 쿼리: {h.query}" if h.query else h.content}
                 for h in find_history]
 
-    async def _classify_persona(self, user_query, history: list) -> str:
+    async def _dashboard_persona(self, user_query: dict) -> list:
+        dashboard_prompt = self.init_prompts["Dashboard"]
+        dashboard_prompt.append(user_query)
+
+        schema_path = "common/dashboard_response_format.json"
+        META_SCHEMA = self.gpt_service._load_meta_schema(schema_path)
+        response_format = {"type": "json_schema", "json_schema": META_SCHEMA}
+
+        response = await self.gpt_service.get_response(dashboard_prompt, response_format)
+        response_data = json.loads(response)
+        selected_dashboard = response_data.get("Dashboards")
+        return selected_dashboard if selected_dashboard else []
+
+    async def _classify_persona(self, user_query: dict, history: list) -> str:
         classify_prompt = history
         classify_prompt.append(self.init_prompts["Classify"][0])
         classify_prompt.append(user_query)
 
         response = await self.gpt_service.get_response(classify_prompt)
-        responss_data = json.loads(response)
-        persona_type = responss_data.get("topics")
+        response_data = json.loads(response)
+        persona_type = response_data.get("topics")
         return persona_type
 
-    async def _es_persona(self, user_query, history: list) -> dict[str, Any]:
+    async def _es_persona(self, user_query: dict, history: list) -> dict[str, Any]:
         es_prompt = history
         es_prompt.append(self.init_prompts["ES"][0])
         es_prompt.append(user_query)
@@ -116,7 +129,7 @@ class PromptService:
         else:
             raise HTTPException(status_code=500, detail="Unable to generate a valid Elasticsearch query.")
 
-    async def _db_persona(self, user_query, history: list, user_id: str) -> dict[str, Any]:
+    async def _db_persona(self, user_query: dict, history: list, user_id: str) -> dict[str, Any]:
         await self.asset_service.update_asset(user_id)  # 자산 업데이트
 
         db_prompt = history
@@ -192,8 +205,16 @@ class PromptService:
                 question=user_question
             )
             user_query = {"role": "user", "content": user_content}
-            query = None
             history = await self._load_chat_history(prompt_session_id)  # 이전 대화 내역 가져오기
+
+            # 대시보드 선택자 페르소나 로직 수행
+            try:
+                selected_dashboard = await self._dashboard_persona(user_query)
+                yield self._create_stream_response(type="Dashboard", data=selected_dashboard)
+                logger.info(f"Dashboard selected: {selected_dashboard}")
+            except Exception as e:
+                logger.error(f"Error during dashboard selection: {e}")
+                raise HTTPException(status_code=500, detail="Dashboard selection is failed.")
 
             # 분류기 페르소나 로직 수행
             try:
@@ -201,9 +222,10 @@ class PromptService:
                 logger.info(f"Persona type classified: {persona_type}")
             except Exception as e:
                 logger.error(f"Error during persona classification: {e}")
-                raise HTTPException(status_code=500, detail="Persona classification failed.")
+                raise HTTPException(status_code=500, detail="Persona classification is failed.")
 
             # 분류기 결과에 따른 페르소나 로직 수행
+            query, query_result = None, None
             if persona_type in ["ES", "DB"]:
                 if persona_type == "ES":
                     query, query_result = await self._es_persona(user_query, history)
@@ -286,9 +308,11 @@ class PromptService:
             yield self._create_stream_response(status="complete")  # 스트리밍 완료 메시지 전송
             await self._create_prompt_title(prompt_session_id, user_question)  # 프롬프트 타이틀 생성
 
-            await self.prompt_repository.save_chat(prompt_session_id, "user", user_question)
-            await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, query)
-        except Exception as e: 
+            await self.prompt_repository.save_chat(prompt_session_id, "user", user_question,
+                                                   selected_dashboard=selected_dashboard, persona_type=persona_type)
+            await self.prompt_repository.save_chat(prompt_session_id, "assistant", assistant_response, 
+                                                   query=query, query_result=query_result)
+        except Exception as e:
             logger.error(f"Error processing prompt for session_id: {prompt_session_id}, user_id: {user_id}, error: {str(e)}") 
             raise HTTPException(status_code=500, detail=f"Failed to process prompt.")
 
