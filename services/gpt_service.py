@@ -76,7 +76,7 @@ class GPTService:
 
     async def stream_response(self, messages):
         try:
-            stream = await self.gpt_async_client.chat.completions.create(
+            stream = self.gpt_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
                 stream=True,
