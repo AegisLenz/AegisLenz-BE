@@ -80,3 +80,7 @@ class ReportSummary(BaseModel):
 
 class ReportCheckResponseSchema(BaseModel):
     report_check: list[ReportSummary]
+
+
+class DailyInsightResponseSchema(BaseModel):
+    daily_insight: str
