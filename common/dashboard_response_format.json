@@ -1,0 +1,17 @@
+{
+    "name": "get_dashboards",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "Dashboards": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "required": [
+            "Dashboards"
+        ]
+    }
+}
