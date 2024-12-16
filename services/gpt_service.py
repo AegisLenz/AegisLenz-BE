@@ -30,6 +30,7 @@ class GPTService:
             "Recommend": "recomm.txt",
             "Graph": "graphPr.txt",
             "ReportCheck": "reportcheck.txt",
+            "DailyInsight": "dailyInsight.txt",
             "Dashboard": "DashPr.txt"
         }
 

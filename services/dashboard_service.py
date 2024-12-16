@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 from aioboto3 import Session
 from fastapi import Depends, HTTPException
@@ -7,11 +8,12 @@ from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from datetime import datetime, timedelta, timezone
 from services.policy_service import PolicyService
 from services.gpt_service import GPTService
+from services.dashboard.daily_insight import process_logs_by_token_limit
 from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
 from repositories.report_repository import ReportRepository
 from repositories.prompt_repository import PromptRepository
-from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary
+from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary, DailyInsightResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -240,7 +242,6 @@ class DashboardService:
     async def _get_inactive_users(self, threshold_days=90) -> int:
         """90일 동안 비활성화된 사용자의 UserName 반환"""
         try:
-
             now = datetime.now(timezone.utc)
             threshold_date = now - timedelta(days=threshold_days)
 
@@ -411,3 +412,96 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Error processing GPT response for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing report summaries.")
+
+    def _fetch_all_logs_with_scroll(self):
+        now = datetime.now(timezone.utc)  # 현재 시간
+        past_days = now - timedelta(days=1)  # 1일 전 시간
+
+        # Scroll API 설정
+        query = {
+            "query": {
+                "range": {
+                    "@timestamp": {
+                        "gte": past_days.isoformat(),
+                        "lte": now.isoformat(),
+                        "format": "strict_date_optional_time"
+                    }
+                }
+            },
+            "sort": [{"@timestamp": {"order": "asc"}}],
+            "size": 1000  # 한 번에 가져올 문서 수
+        }
+
+        try:
+            logger.info("Elasticsearch Scroll API를 사용해 로그를 가져옵니다...")
+
+            # Scroll 시작
+            response = self.es.search(index="cloudtrail-logs-*", body=query, scroll="1m")
+            scroll_id = response["_scroll_id"]
+            logs = [hit["_source"] for hit in response["hits"]["hits"]]
+
+            while True:
+                # Scroll 계속해서 가져오기
+                scroll_response = self.es.scroll(scroll_id=scroll_id, scroll="1m")
+                hits = scroll_response["hits"]["hits"]
+                if not hits:
+                    break
+
+                logs.extend([hit["_source"] for hit in hits])
+
+            logger.info(f"총 {len(logs)}개의 로그를 Elasticsearch에서 가져왔습니다.")
+            return logs
+
+        except es_exceptions.ConnectionError as e:
+            logger.error(f"Elasticsearch 연결 오류: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except es_exceptions.RequestError as e:
+            logger.error(f"Elasticsearch 요청 오류: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except Exception as e:
+            logger.error(f"Elasticsearch에서 로그를 가져오는 중 오류 발생: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        
+    async def get_daily_insight(self, user_id: str) -> DailyInsightResponseSchema:
+        try:
+            logs = self._fetch_all_logs_with_scroll()
+            if not logs:
+                logger.error("가져온 로그가 없습니다. 작업을 종료합니다.")
+            logger.info(f"가져온 전체 JSON 로그 개수: {len(logs)}")
+            
+            log_chunks = process_logs_by_token_limit(logs, token_limit=120000)
+            logger.info(f"토큰 한계를 기준으로 총 {len(log_chunks)}개의 청크로 나누어졌습니다.")
+
+            try:
+                init_prompts = self.gpt_service._load_prompts()
+                logger.debug("Successfully loaded initial prompts.")
+            except Exception as e:
+                logger.error(f"Failed to load initial prompts: {e}")
+                raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
+
+            response_list = []
+
+            for index, chunk in enumerate(log_chunks, start=1):
+                log_string = "\n".join(json.dumps(log) for log in chunk)
+
+                daily_insight_content = init_prompts["DailyInsight"][0]["content"].format(logs=log_string)
+                daily_insight_prompt = [{"role": "system", "content": daily_insight_content}]
+                response = await self.gpt_service.get_response(daily_insight_prompt, json_format=False)
+                
+                if response:
+                    response_list.append(response)
+                    logger.info(f"Chunk {index} 처리 완료. 응답 추가됨.")
+                else:
+                    logger.info(f"Chunk {index} 처리 중 응답이 비어 있습니다.")
+
+            if response_list:
+                combined_content = "\n".join(response_list) + "\n데이터의 관계와 흐름을 파악해서 요약하세요."
+                combined_prompt = [{"role": "user", "content": combined_content}]
+                response = await self.gpt_service.get_response(combined_prompt, json_format=False)
+                return DailyInsightResponseSchema(daily_insight=response)
+            else:
+                logger.error(f"No response list provided to process GPT response for user_id {user_id}.")
+                raise HTTPException(status_code=400, detail="No data available to generate daily insights. Please provide a valid response list.")
+        except Exception as e:
+            logger.error(f"Error processing daily insight for user_id {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Error processing daily insight.")
