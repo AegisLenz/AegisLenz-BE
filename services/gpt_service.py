@@ -1,6 +1,6 @@
 import os
 import json
-import openai
+from openai import AsyncOpenAI, OpenAI
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from common.logging import setup_logger
@@ -15,7 +15,8 @@ class GPTService:
         if not api_key:
             logger.error("API key not found in environment.")
             raise ValueError("Missing OPENAI_API_KEY in environment.")
-        self.gpt_client = openai.OpenAI(api_key=api_key)
+        self.gpt_client = OpenAI(api_key=api_key)
+        self.gpt_async_client = AsyncOpenAI(api_key=api_key)
 
     def _load_prompts(self, prompt_files=None):
         prompt_dir = os.getenv("PROMPT_ENGINEERING_DIR_PATH")
@@ -63,6 +64,23 @@ class GPTService:
             presence_penalty = 1.5 if recomm else 0
             
             response = self.gpt_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                response_format=response_format,
+                presence_penalty=presence_penalty
+            )
+            return self._clean_response(response)
+        except Exception as e:
+            logger.error(f"Error fetching GPT response: {e}")
+            raise HTTPException(status_code=500, detail="GPT API error")
+
+    async def get_async_response(self, messages, json_format=True, recomm=False, response_format=None):
+        try:
+            if not response_format:
+                response_format = {"type": "json_object"} if json_format else None
+            presence_penalty = 1.5 if recomm else 0
+            
+            response = await self.gpt_async_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
                 response_format=response_format,

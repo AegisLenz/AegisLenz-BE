@@ -27,3 +27,8 @@ async def get_all_report_template(user_id: str = "1", report_service: ReportServ
 @router.get("/template/{report_template_id}", response_model=GetReportTemplateResponseSchema)
 async def get_report_template(report_template_id: str, user_id: str = "1", report_service: ReportService = Depends()):
     return await report_service.get_report_template(user_id, report_template_id)
+
+
+@router.post("/{report_id}/{report_template_id}")
+async def create_report(report_id: str, report_template_id: str, user_id: str = "1", report_service: ReportService = Depends()):
+    return await report_service.create_report(user_id, report_id, report_template_id)

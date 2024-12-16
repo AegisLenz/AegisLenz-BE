@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import Depends, HTTPException
 from ai.predict import BERTPredictor
 from services.gpt_service import GPTService
@@ -52,7 +53,7 @@ class BERTService:
 
             base_query = f"AI 질의 : AWS 환경에서 발생한 공격이 MITRE ATTACK Tatic 중 {attack_info["attack_type"][0]}일 때, 보안 관리자가 어떤 질문을 해야 하는지 추천 질문 만들어줘"
             recommend_prompt.append({"role": "user", "content": base_query})
-            response = await self.gpt_service.get_response(recommend_prompt, json_format=False, recomm=True)
+            response = await self.gpt_service.get_async_response(recommend_prompt, json_format=False, recomm=True)
             
             recommend_questions = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
             recommend_prompt.append({"role": "assistant", "content": "\n".join(recommend_questions)})
@@ -67,7 +68,7 @@ class BERTService:
                 logs=attack_info["logs"]
             )
             attack_graph_prompt = [{"role": "system", "content": attack_graph_content}]
-            attack_graph = await self.gpt_service.get_response(attack_graph_prompt, json_format=False)
+            attack_graph = await self.gpt_service.get_async_response(attack_graph_prompt, json_format=False)
             return attack_graph
         except Exception as e:
             logger.error(f"Error while creating attack graph: {e}")
@@ -96,15 +97,11 @@ class BERTService:
             report = await self._create_report(attack_info)
             logger.debug(f"Generated report: {report}")
 
-            recommend_prompt, recommend_questions = await self._create_recommend_questions(attack_info, report)
-            logger.debug(f"Generated recommended questions: {recommend_questions}")
-
-            least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-            logger.debug(f"Generated least privilege policy: {least_privilege_policy}")
-
-            attack_graph = await self._create_attack_graph(attack_info)
-            logger.debug(f"Generated attack graph: {attack_graph}")
-
+            (recommend_prompt, recommend_questions), least_privilege_policy, attack_graph = await asyncio.gather(
+                self._create_recommend_questions(attack_info, report),
+                self.policy_service.generate_least_privilege_policy(user_id),
+                self._create_attack_graph(attack_info)
+            )
             logger.debug("report, recommend questions, least privilege policy, attack_graph generated successfully.")
         except Exception as e:
             logger.error(f"Error during report or questions or policies or graph generation: {e}")
@@ -113,9 +110,9 @@ class BERTService:
         # 3. 프롬프트 생성 및 공격 관련 정보 저장
         try:
             title = f"{attack_info['attack_type']} 공격 탐지"
-            attack_content = f"{attack_info['attack_type']} 공격이 탐지되었습니다."
+            attack_content = f"{attack_info["attack_time"]}에 {attack_info['attack_type']} 공격이 탐지되었습니다."
 
-            attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy, attack_graph, user_id)
+            attack_detection_id = await self.bert_repository.save_attack_detection(report, least_privilege_policy, attack_graph, user_id, attack_info)
             prompt_session_id = await self.prompt_repository.create_prompt(user_id, attack_detection_id, recommend_prompt, recommend_questions, title)
             await self.prompt_repository.save_chat(str(prompt_session_id), "assistant", attack_content)
             

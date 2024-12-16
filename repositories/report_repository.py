@@ -1,5 +1,7 @@
 from fastapi import HTTPException
+from typing import Optional
 from odmantic import ObjectId
+from datetime import datetime, timedelta, timezone
 from database.mongodb_driver import mongodb
 from models.attack_detection_model import Report, ReportTemplate
 from common.logging import setup_logger
@@ -16,7 +18,8 @@ class ReportRepository:
         try:
             reports = await self.mongodb_engine.find(
                 Report,
-                Report.user_id == user_id
+                Report.user_id == user_id,
+                sort=(Report.created_at, Report.created_at.desc())
             )
             return reports
         except Exception as e:
@@ -45,12 +48,11 @@ class ReportRepository:
             logger.error(f"Error fetching report for report_id={report_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
 
-    async def create_report_template(self, user_id: str, title: str, selected_field: list, prompt_text: str) -> ObjectId:
+    async def create_report_template(self, user_id: str, title: str, selected_field: list) -> ObjectId:
         try:
             report_template = ReportTemplate(
                 title=title,
                 selected_field=selected_field,
-                prompt_text=prompt_text,
                 user_id=user_id
             )
             result = await self.mongodb_engine.save(report_template)
@@ -74,9 +76,27 @@ class ReportRepository:
         try:
             report_template = await self.mongodb_engine.find_one(
                 ReportTemplate,
-                ReportTemplate.id == ObjectId(report_template_id)
+                ReportTemplate.id == ObjectId(report_template_id),
+                sort=(ReportTemplate.created_at, ReportTemplate.created_at.desc())
             )
             return report_template
         except Exception as e:
             logger.error(f"Error fetching report template for report_template_id={report_template_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch report template: {str(e)}")
+
+    async def create_report(self, report_content: str, user_id: str, attack_detection_id: ObjectId,
+                            title: Optional[str] = None, report_template_id: Optional[ObjectId] = None) -> ObjectId:
+        try:
+            report = Report(
+                title=title,
+                report_content=report_content,
+                user_id=user_id,
+                attack_detection_id=attack_detection_id,
+                report_template_id=report_template_id,
+                created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
+            )
+            result = await self.mongodb_engine.save(report)
+            return result.id
+        except Exception as e:
+            logger.error(f"Error creating report template for user ID '{user_id}', Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save the report template: {str(e)}")

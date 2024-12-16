@@ -10,7 +10,7 @@ class BertRepository:
         self.mongodb_engine = mongodb.engine
         self.mongodb_client = mongodb.client
     
-    async def save_attack_detection(self, report: str, least_privilege_policy: dict[str, dict[str, list[object]]], attack_graph: str, user_id: str) -> str:
+    async def save_attack_detection(self, report: str, least_privilege_policy: dict[str, dict[str, list[object]]], attack_graph: str, user_id: str, attack_info: dict) -> str:
         try:
             if not user_id or not isinstance(user_id, str):
                 raise ValueError("Invalid user_id")
@@ -18,6 +18,9 @@ class BertRepository:
                 raise ValueError("Invalid attack_graph")
 
             attack_detection = AttackDetection(
+                attack_logs=attack_info["logs"],
+                attack_type=attack_info["attack_type"],
+                attack_time=attack_info["attack_time"],
                 least_privilege_policy=least_privilege_policy,
                 attack_graph=attack_graph,
                 user_id=user_id,
