@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 from odmantic import Model, ObjectId, Field
 from datetime import datetime
 
@@ -20,7 +20,11 @@ class PromptSession(Model):
 class PromptChat(Model):
     role: str
     content: str
+    
+    selected_dashboard: Optional[list] = Field(default_factory=list)
+    persona: Optional[str] = Field(default=None)
     query: Optional[str] = Field(default=None)
+    query_result: Optional[Any] = Field(default=None)
 
     prompt_session_id: ObjectId
     created_at: datetime = Field(default_factory=datetime.utcnow)
