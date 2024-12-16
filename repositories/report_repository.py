@@ -18,7 +18,8 @@ class ReportRepository:
         try:
             reports = await self.mongodb_engine.find(
                 Report,
-                Report.user_id == user_id
+                Report.user_id == user_id,
+                sort=(Report.created_at, Report.created_at.desc())
             )
             return reports
         except Exception as e:
@@ -75,7 +76,8 @@ class ReportRepository:
         try:
             report_template = await self.mongodb_engine.find_one(
                 ReportTemplate,
-                ReportTemplate.id == ObjectId(report_template_id)
+                ReportTemplate.id == ObjectId(report_template_id),
+                sort=(ReportTemplate.created_at, ReportTemplate.created_at.desc())
             )
             return report_template
         except Exception as e:
