@@ -1,5 +1,26 @@
 import json
 
+def convert_list_to_dict(policy_list, key_field='userName'):
+    """
+    리스트 형태의 정책 데이터를 딕셔너리로 변환합니다.
+    key_field에 해당하는 값을 기준으로 딕셔너리의 키를 만듭니다.
+    """
+    if not isinstance(policy_list, list):
+        raise ValueError(f"Expected a list, but got {type(policy_list)}")
+    
+    result = {}
+    for item in policy_list:
+        if not isinstance(item, dict):
+            continue
+        
+        key = item.get(key_field, 'unknown')
+        if key not in result:
+            result[key] = []
+        result[key].append(item)
+    
+    return result
+
+
 def load_json(file_path):
     """JSON 파일을 로드."""
     try:

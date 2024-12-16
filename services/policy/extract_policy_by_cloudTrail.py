@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from services.policy.common_utils import load_json, merge_policies, map_etc
 from services.policy.s3_policy_mapper import s3_policy_mapper
@@ -10,13 +11,15 @@ from common.logging import setup_logger
 import json
 
 load_dotenv()
+
+
 logger = setup_logger()
 
 def clustering_by_username(logs):
-    logs = load_json(logs).get("Records",[])
+    records = logs.get("Records",[])
     cluster = {}
-    for log in logs:
-        userIdentity = log.get("userIdentity",{})
+    for record in records:
+        userIdentity = record.get("userIdentity",{})
         if "userName" in userIdentity:
             userName = userIdentity["userName"]
         elif userIdentity.get("type") == "Root":
@@ -26,7 +29,7 @@ def clustering_by_username(logs):
 
         if userName not in cluster:
             cluster[userName] = [] 
-        cluster[userName].append(log)
+        cluster[userName].append(record)
     return cluster
 
 
@@ -128,7 +131,7 @@ def fetch_all_logs_with_scroll():
                 break
 
             logs.extend([hit["_source"] for hit in hits])
-        formatted_logs = {"Records": logs}
+        formatted_logs = {"Records": logs}        
         return formatted_logs
 
     except es_exceptions.ConnectionError as e:
@@ -183,13 +186,14 @@ def making_policy(log_entry):
 def extract_policy_by_cloudTrail():
 
     logs = fetch_all_logs_with_scroll()
-    if not isinstance(logs, list):
-        logger.error("The log file does not contain a valid list of log entries.")
-        return []
-    
     if not logs:
         logger.error("No logs were retrieved. The operation will be terminated.")
         return []
+    
+    if not isinstance(logs, dict):
+        logger.error("The log file does not contain a valid list of log entries.")
+        return []
+    
     
     normal_log = []
     all_policies = []
@@ -225,4 +229,5 @@ def extract_policy_by_cloudTrail():
         if user_name not in policies:
             policies[user_name] = []
         policies[user_name].append(final_policy)
+        print(policies)
     return policies
