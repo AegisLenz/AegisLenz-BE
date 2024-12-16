@@ -1,4 +1,5 @@
 import json
+import asyncio
 from bson import json_util
 from fastapi import HTTPException, Depends
 from datetime import datetime
@@ -105,6 +106,8 @@ class PromptService:
         response = await self.gpt_service.get_response(dashboard_prompt, response_format)
         response_data = json.loads(response)
         selected_dashboard = response_data.get("Dashboards")
+        
+        logger.info(f"Dashboard selected: {selected_dashboard}")
         return selected_dashboard if selected_dashboard else []
 
     async def _classify_persona(self, user_query: dict, history: list) -> str:
@@ -115,6 +118,8 @@ class PromptService:
         response = await self.gpt_service.get_response(classify_prompt)
         response_data = json.loads(response)
         persona_type = response_data.get("topics")
+
+        logger.info(f"Persona type classified: {persona_type}")
         return persona_type
 
     async def _es_persona(self, user_query: dict, history: list) -> dict[str, Any]:
@@ -185,7 +190,7 @@ class PromptService:
                 elif isinstance(data, str):
                     data = data.replace('\"', '')
                 elif isinstance(data, list):
-                    pass
+                    data = [json.dumps(item, ensure_ascii=False) if isinstance(item, dict) else item for item in data]
 
             response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
             return json.dumps(response.dict(), ensure_ascii=False) + "\n"
@@ -207,19 +212,13 @@ class PromptService:
             user_query = {"role": "user", "content": user_content}
             history = await self._load_chat_history(prompt_session_id)  # 이전 대화 내역 가져오기
 
-            # 대시보드 선택자 페르소나 로직 수행
+            # 대시보드 선택자 및 분류기 페르소나 로직 수행
             try:
-                selected_dashboard = await self._dashboard_persona(user_query)
+                selected_dashboard, persona_type = await asyncio.gather(
+                    self._dashboard_persona(user_query),
+                    self._classify_persona(user_query, history)
+                )
                 yield self._create_stream_response(type="Dashboard", data=selected_dashboard)
-                logger.info(f"Dashboard selected: {selected_dashboard}")
-            except Exception as e:
-                logger.error(f"Error during dashboard selection: {e}")
-                raise HTTPException(status_code=500, detail="Dashboard selection is failed.")
-
-            # 분류기 페르소나 로직 수행
-            try:
-                persona_type = await self._classify_persona(user_query, history)
-                logger.info(f"Persona type classified: {persona_type}")
             except Exception as e:
                 logger.error(f"Error during persona classification: {e}")
                 raise HTTPException(status_code=500, detail="Persona classification is failed.")
@@ -291,7 +290,7 @@ class PromptService:
             elif persona_type == "Normal":
                 summary_prompt = history
                 summary_prompt.append({"role": "user", "content": user_question})
-
+                
                 # 응답 페르소나
                 assistant_response = ""
                 async for chunk in self.gpt_service.stream_response(summary_prompt):

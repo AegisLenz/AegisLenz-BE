@@ -119,7 +119,6 @@ class PromptRepository:
 
             result = parse_es_response(query_result)
             logger.info("Final extracted result: %s", result)
-
             return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
@@ -136,11 +135,8 @@ class PromptRepository:
             logger.info("Raw query result: %s", query_result)
 
             first_batch = query_result.get("cursor", {}).get("firstBatch", [])
-            logger.info(type(first_batch))
             result = parse_db_response(first_batch)
-            logger.info(type(result))
             logger.info("Final extracted result: %s", result)
-
             return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")

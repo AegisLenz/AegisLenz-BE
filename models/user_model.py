@@ -24,3 +24,11 @@ class Bookmark(Model):
     user_id: str
 
     model_config = {"collection": "bookmarks"}
+
+
+class Dashboard(Model):
+    daily_insight: str
+    user_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = {"collection": "dashboards"}
