@@ -1,4 +1,3 @@
-import json
 from fastapi import HTTPException
 from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone

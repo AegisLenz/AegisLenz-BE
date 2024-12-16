@@ -4,8 +4,8 @@ import asyncio
 from aioboto3 import Session
 from fastapi import Depends, HTTPException
 from dotenv import load_dotenv
+from datetime import date, timedelta, datetime, timezone
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
-from datetime import datetime, timedelta, timezone
 from services.policy_service import PolicyService
 from services.gpt_service import GPTService
 from services.dashboard.daily_insight import process_logs_by_token_limit
@@ -13,6 +13,7 @@ from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
 from repositories.report_repository import ReportRepository
 from repositories.prompt_repository import PromptRepository
+from repositories.dashboard_repository import DashboardRepository
 from schemas.dashboard_schema import AccountByServiceResponseSchema, AccountCountResponseSchema, DetectionResponseSchema, ScoreResponseSchema, RisksResponseSchema, ReportCheckResponseSchema, ReportSummary, DailyInsightResponseSchema
 from common.logging import setup_logger
 
@@ -23,13 +24,15 @@ load_dotenv()
 class DashboardService:
     def __init__(self, policy_service: PolicyService = Depends(), gpt_service: GPTService = Depends(),
                  asset_repository: AssetRepository = Depends(), bert_repository: BertRepository = Depends(),
-                 report_repository: ReportRepository = Depends(), prompt_repository: PromptRepository = Depends()):
+                 report_repository: ReportRepository = Depends(), prompt_repository: PromptRepository = Depends(),
+                 dashboard_repository: DashboardRepository = Depends()):
         self.policy_service = policy_service
         self.gpt_service = gpt_service
         self.asset_repository = asset_repository
         self.bert_repository = bert_repository
         self.report_repository = report_repository
         self.prompt_repository = prompt_repository
+        self.dashboard_repository = dashboard_repository
 
         self.es_index = os.getenv("ES_INDEX", "cloudtrail-logs-*")
         self.es_attack_index = os.getenv("ES_ATTACK_INDEX", "cloudtrail-attack-logs")
@@ -43,6 +46,13 @@ class DashboardService:
         except es_exceptions.ElasticsearchException as e:
             logger.error(f"Elasticsearch initialization error: {e}")
             raise HTTPException(status_code=500, detail="Failed to initialize Elasticsearch client.")
+
+        try:
+            self.init_prompts = self.gpt_service._load_prompts()
+            logger.debug("Successfully loaded initial prompts.")
+        except Exception as e:
+            logger.error(f"Failed to load initial prompts: {e}")
+            raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
 
         try:
             self.session = Session(
@@ -413,17 +423,22 @@ class DashboardService:
             logger.error(f"Error processing GPT response for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing report summaries.")
 
-    def _fetch_all_logs_with_scroll(self):
-        now = datetime.now(timezone.utc)  # 현재 시간
-        past_days = now - timedelta(days=1)  # 1일 전 시간
+    def _fetch_all_logs_with_scroll(self) -> list:
+        # 오늘 날짜 및 1일 전 날짜 계산 (날짜 기준)
+        today = date.today()
+        target_date = today - timedelta(days=1)  # 어제 날짜
+
+        # 시작 및 끝 시간 계산
+        start_datetime = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        end_datetime = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
 
         # Scroll API 설정
         query = {
             "query": {
                 "range": {
                     "@timestamp": {
-                        "gte": past_days.isoformat(),
-                        "lte": now.isoformat(),
+                        "gte": start_datetime.isoformat(),
+                        "lte": end_datetime.isoformat(),
                         "format": "strict_date_optional_time"
                     }
                 }
@@ -448,8 +463,7 @@ class DashboardService:
                     break
 
                 logs.extend([hit["_source"] for hit in hits])
-
-            logger.info(f"총 {len(logs)}개의 로그를 Elasticsearch에서 가져왔습니다.")
+            
             return logs
 
         except es_exceptions.ConnectionError as e:
@@ -462,46 +476,56 @@ class DashboardService:
             logger.error(f"Elasticsearch에서 로그를 가져오는 중 오류 발생: {str(e)}")
             raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
         
-    async def get_daily_insight(self, user_id: str) -> DailyInsightResponseSchema:
+    async def _create_daily_insight(self) -> str:
         try:
+            # 1. 로그 가져오기
             logs = self._fetch_all_logs_with_scroll()
             if not logs:
                 logger.error("가져온 로그가 없습니다. 작업을 종료합니다.")
             logger.info(f"가져온 전체 JSON 로그 개수: {len(logs)}")
             
+            # 2. 로그를 토큰 한계에 따라 청크로 나누기
             log_chunks = process_logs_by_token_limit(logs, token_limit=120000)
             logger.info(f"토큰 한계를 기준으로 총 {len(log_chunks)}개의 청크로 나누어졌습니다.")
 
-            try:
-                init_prompts = self.gpt_service._load_prompts()
-                logger.debug("Successfully loaded initial prompts.")
-            except Exception as e:
-                logger.error(f"Failed to load initial prompts: {e}")
-                raise HTTPException(status_code=500, detail="Failed to initialize prompts.")
-
+            # 3. 청크별 GPT 요청 처리 (동기적으로 처리)
             response_list = []
-
             for index, chunk in enumerate(log_chunks, start=1):
                 log_string = "\n".join(json.dumps(log) for log in chunk)
-
-                daily_insight_content = init_prompts["DailyInsight"][0]["content"].format(logs=log_string)
+                daily_insight_content = self.init_prompts["DailyInsight"][0]["content"].format(logs=log_string)
                 daily_insight_prompt = [{"role": "system", "content": daily_insight_content}]
-                response = await self.gpt_service.get_response(daily_insight_prompt, json_format=False)
                 
+                response = await self.gpt_service.get_response(daily_insight_prompt, json_format=False)
                 if response:
                     response_list.append(response)
                     logger.info(f"Chunk {index} 처리 완료. 응답 추가됨.")
                 else:
-                    logger.info(f"Chunk {index} 처리 중 응답이 비어 있습니다.")
+                    logger.warning(f"Chunk {index} 처리 중 응답이 비어 있습니다.")
 
-            if response_list:
-                combined_content = "\n".join(response_list) + "\n데이터의 관계와 흐름을 파악해서 요약하세요."
-                combined_prompt = [{"role": "user", "content": combined_content}]
-                response = await self.gpt_service.get_response(combined_prompt, json_format=False)
-                return DailyInsightResponseSchema(daily_insight=response)
-            else:
-                logger.error(f"No response list provided to process GPT response for user_id {user_id}.")
-                raise HTTPException(status_code=400, detail="No data available to generate daily insights. Please provide a valid response list.")
+            if not response_list:
+                logger.error("No response list provided to process GPT response.")
+                raise HTTPException(status_code=400, detail="No valid responses received to generate daily insight.")
+
+            # 4. 응답 리스트를 통합하여 최종 GPT 요청
+            combined_content = "\n".join(response_list) + "\n데이터의 관계와 흐름을 파악해서 요약하세요."
+            combined_prompt = [{"role": "user", "content": combined_content}]
+            
+            final_response = await self.gpt_service.get_response(combined_prompt, json_format=False)
+            return final_response
+            
+        except Exception as e:
+            logger.error(f"Error creating daily insight: {e}")
+            raise HTTPException(status_code=500, detail="Error creating daily insight.")
+
+    async def get_daily_insight(self, user_id: str) -> DailyInsightResponseSchema:
+        try:
+            find_dashboard = await self.dashboard_repository.find_dashboard(user_id)
+            if find_dashboard and find_dashboard.created_at.date() == date.today():
+                return DailyInsightResponseSchema(daily_insight=find_dashboard.daily_insight)
+
+            daily_insight = await self._create_daily_insight()
+            await self.dashboard_repository.save_dashboard(daily_insight, user_id)
+            return DailyInsightResponseSchema(daily_insight=daily_insight)
         except Exception as e:
             logger.error(f"Error processing daily insight for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing daily insight.")
