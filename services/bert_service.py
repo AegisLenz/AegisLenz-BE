@@ -53,7 +53,7 @@ class BERTService:
 
             base_query = f"AI 질의 : AWS 환경에서 발생한 공격이 MITRE ATTACK Tatic 중 {attack_info["attack_type"][0]}일 때, 보안 관리자가 어떤 질문을 해야 하는지 추천 질문 만들어줘"
             recommend_prompt.append({"role": "user", "content": base_query})
-            response = await self.gpt_service.get_async_response(recommend_prompt, json_format=False, recomm=True)
+            response = await self.gpt_service.get_response(recommend_prompt, json_format=False, recomm=True)
             
             recommend_questions = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
             recommend_prompt.append({"role": "assistant", "content": "\n".join(recommend_questions)})
@@ -68,7 +68,7 @@ class BERTService:
                 logs=attack_info["logs"]
             )
             attack_graph_prompt = [{"role": "system", "content": attack_graph_content}]
-            attack_graph = await self.gpt_service.get_async_response(attack_graph_prompt, json_format=False)
+            attack_graph = await self.gpt_service.get_response(attack_graph_prompt, json_format=False)
             return attack_graph
         except Exception as e:
             logger.error(f"Error while creating attack graph: {e}")

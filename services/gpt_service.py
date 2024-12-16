@@ -63,23 +63,6 @@ class GPTService:
                 response_format = {"type": "json_object"} if json_format else None
             presence_penalty = 1.5 if recomm else 0
             
-            response = self.gpt_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                response_format=response_format,
-                presence_penalty=presence_penalty
-            )
-            return self._clean_response(response)
-        except Exception as e:
-            logger.error(f"Error fetching GPT response: {e}")
-            raise HTTPException(status_code=500, detail="GPT API error")
-
-    async def get_async_response(self, messages, json_format=True, recomm=False, response_format=None):
-        try:
-            if not response_format:
-                response_format = {"type": "json_object"} if json_format else None
-            presence_penalty = 1.5 if recomm else 0
-            
             response = await self.gpt_async_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
@@ -93,7 +76,7 @@ class GPTService:
 
     async def stream_response(self, messages):
         try:
-            stream = self.gpt_client.chat.completions.create(
+            stream = await self.gpt_async_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
                 stream=True,
