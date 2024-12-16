@@ -39,7 +39,6 @@ class GetReportResponseSchema(BaseModel):
 class CreateReportTemplateRequestSchema(BaseModel):
     title: Optional[str] = None
     selected_field: list
-    prompt_text: str
 
     class Config:
         json_schema_extra = {
@@ -47,8 +46,7 @@ class CreateReportTemplateRequestSchema(BaseModel):
                 "title": "string",
                 "selected_field": [
                     "string"
-                ],
-                "prompt_text": "string"
+                ]
             }
         }
 
@@ -71,5 +69,4 @@ class GetAllReportTemplateResponseSchema(BaseModel):
 class GetReportTemplateResponseSchema(BaseModel):
     title: Optional[str] = None
     selected_field: list[str]
-    prompt_text: str
     created_at: datetime
