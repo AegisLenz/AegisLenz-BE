@@ -1,5 +1,4 @@
 import os
-from fastapi import HTTPException
 from elasticsearch import AsyncElasticsearch, exceptions as es_exceptions
 from dotenv import load_dotenv
 from common.logging import setup_logger
@@ -55,7 +54,7 @@ class ElasticsearchService:
     async def search_logs(self, index, query, size=5, sort_field="@timestamp", sort_order="desc", timeout="30s"):
         try:
             timeout = await self._validate_timeout(timeout)
-            request_timeout = request_timeout or timeout
+            request_timeout = timeout
 
             response = await self.es.search(
                 index=index,
@@ -69,6 +68,7 @@ class ElasticsearchService:
             raise ElasticsearchRequestError(f"Request error while searching logs: {str(e)}")
         except Exception as e:
             raise ElasticsearchServiceError(f"Unexpected error while searching logs: {str(e)}")
+
 
     async def save_document(self, index, doc_id, body, overwrite=False, timeout="30s"):
         try:
