@@ -276,7 +276,7 @@ class PromptService:
             query, query_result = None, None
             topic = ""
             isES = False
-            isDB = True
+            isDB = False
             needed_detail = True
             
             for sub_question in sub_questions:
@@ -320,8 +320,10 @@ class PromptService:
                     else:
                         sub_response = await self._normal_persona(user_sub_question, history)
                     needed_detail = False
+                    needed_detail = False
                 elif topic == "Normal":
                     sub_response = await self._normal_persona(user_sub_question, history)
+                    needed_detail = False
                     needed_detail = False
                 else:
                     raise HTTPException(status_code=500, detail="Unknown persona type.")
@@ -349,14 +351,15 @@ class PromptService:
                 yield self._create_stream_response(type="DBQuery", data=query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
             
-            summary_prompt = self.init_prompts["Summary"].copy()
-            summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
-            
-            assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk
-                yield self._create_stream_response(type="Summary", data=chunk)
-            logger.info(f"final response: {assistant_response}")
+            if needed_detail:
+                summary_prompt = self.init_prompts["Summary"].copy()
+                summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
+
+                assistant_response = ""
+                async for chunk in self.gpt_service.stream_response(summary_prompt):
+                    assistant_response += chunk
+                    yield self._create_stream_response(type="Summary", data=chunk)
+                logger.info(f"final response: {assistant_response}")
 
             # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
             if is_attack:
