@@ -39,14 +39,5 @@ async def login(request: LoginFormSchema = Body(...), user_service: UserService 
 
 @router.post("/register")
 async def create_account(request: CreateAccountFormSchema = Body(...), user_service: UserService = Depends()):
-    user_request = {
-        "user_name": request.user_name,
-        "user_password": request.user_password,
-        "email": request.email or "",
-        "AWS_PRIVATE_KEY": request.AWS_PRIVATE_KEY or "",
-        "AWS_PUBLIC_KEY": request.AWS_PUBLIC_KEY or "",
-        "CHAT_GPT_TOKEN": request.CHAT_GPT_TOKEN or "",
-    }
-
     # 서비스 호출
-    return await user_service.create_account(user_request)
+    return await user_service.create_account(request)

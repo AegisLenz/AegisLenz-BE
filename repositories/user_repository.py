@@ -107,22 +107,41 @@ class UserRepository:
             logger.error(f"Error deleting bookmark. Bookmar ID: '{bookmark_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete bookmark for bookmark ID '{bookmark_id}': {str(e)}")
 
-    # async def login(self, user_name:str, user_password:str):
+    async def login(self, user_name:str, user_password:str):
+        try:
+            user = await self.mongodb_engine.find_one(
+                User,
+                User.id == user_name
+            )
+            if not user: 
+                logger.error(f"{user_name} login failed!")
+                raise HTTPException(status_code=500, detail=f"{user_name} login failed!")
+            elif user.password == user_password:
+                logger.error(f"{user_name} successfully login!")
+                #세션 구현
+                
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed {str(e)}")
+
         
     async def create_account(self, user_request: dict):
         user = await self.mongodb_engine.find_one(
                 User,
-                User.user_name == user_request["user_id"]
+                User.user_name == user_request["user_name"]
         )
+        if user:
+            logger.error(f"{user_request["user_name"]} already exist!")
+            raise HTTPException(status_code=500, detail=f"{user_request["user_name"]} already exist!")
         try:
             user = User(
                 id="1",
-                email=user_request["email"],
+                email=user_request["email"] or "",
                 user_name=user_request["user_name"],
                 password=user_request["user_password"],
-                aws_access_key_id=user_request["aws_access_key_id"],
-                aws_secret_access_key=user_request["aws_secret_access_key"],
-                openai_api_key=user_request["openai_api_key"],
+                aws_access_key_id=user_request["aws_access_key_id"] or "",
+                aws_secret_access_key=user_request["aws_secret_access_key"] or "",
+                openai_api_key=user_request["openai_api_key"] or "",
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
