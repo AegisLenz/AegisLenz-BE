@@ -247,7 +247,7 @@ class PromptService:
             user_content = (
                 "현재 날짜와 시간은 {time}입니다. 이 시간에 맞춰서 작업을 진행해주세요. "
                 "사용자의 자연어 질문: {question} 답변은 반드시 json 형식으로 나옵니다. "
-                "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
+                "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용인 user와 assistant의 content를 참고하여 응답을 반환하세요."
             ).format(
                 time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 question=user_input
