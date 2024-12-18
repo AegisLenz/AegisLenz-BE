@@ -272,18 +272,24 @@ class PromptService:
 
             # 분류기 결과에 따른 페르소나 로직 수행
             final_responses = {}
-            prior_answer, prior_question = None, None
+            prior_answer, prior_question ,prior_return = None, None, None
             query, query_result = None, None
             topic = ""
-
+            isES = False
+            isDB = True
+            needed_detail = True
+            
             for sub_question in sub_questions:
                 topic = sub_question["topics"]
                 question = ""
                 sub_response = ""
+                prior_topic = None
 
                 if prior_answer:
-                    question += f"\n 이전 질문: {prior_question}\n 이전 응답 데이터: {prior_answer} \n 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
-                
+                    if prior_topic in ["ES", "DB"]:
+                        question += f"\n 이전 질문: {prior_question}\n 이전 생성 쿼리문: {prior_answer} \n 이전 쿼리 반환 값(응답 데이터): {prior_return} 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
+                    else:
+                        question += f"\n 이전 질문: {prior_question}\n 이전 응답 데이터: {prior_answer} \n 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
                 question += sub_question["question"]
 
                 user_sub_content = (
@@ -301,16 +307,22 @@ class PromptService:
                     if topic == "ES":
                         query, query_result = await self._es_persona(user_sub_question, history)
                         sub_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
+                        isES = True
+                        isDB = isES ^ isDB
                     elif topic == "DB":
                         query, query_result = await self._db_persona(user_sub_question, history, user_id)
                         sub_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
+                        isDB = True
+                        isES = isDB ^ isES
                 elif topic == "Policy":
                     if is_attack:
                         sub_response = await self._policy_persona(user_sub_question, history)
                     else:
                         sub_response = await self._normal_persona(user_sub_question, history)
+                    needed_detail = False
                 elif topic == "Normal":
                     sub_response = await self._normal_persona(user_sub_question, history)
+                    needed_detail = False
                 else:
                     raise HTTPException(status_code=500, detail="Unknown persona type.")
                 
@@ -326,12 +338,14 @@ class PromptService:
 
                 prior_question = sub_question['question']
                 prior_answer = sub_response
-            
+                prior_topic = topic
+                prior_return = query_result
+                
             # 응답 페르소나
-            if topic == "ES":
+            if isES:
                 yield self._create_stream_response(type="ESQuery", data=query)
                 yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
-            if topic == "DB":
+            if isDB:
                 yield self._create_stream_response(type="DBQuery", data=query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
             
