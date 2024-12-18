@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, Request 
 from odmantic import ObjectId
 from datetime import datetime, timedelta, timezone
 from models.asset_model import UserAsset
@@ -107,22 +107,31 @@ class UserRepository:
             logger.error(f"Error deleting bookmark. Bookmar ID: '{bookmark_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete bookmark for bookmark ID '{bookmark_id}': {str(e)}")
 
-    async def login(self, user_name:str, user_password:str):
+    async def login(self, request: Request, user_name:str, user_password:str):
         try:
             user = await self.mongodb_engine.find_one(
                 User,
-                User.id == user_name
+                User.user_name == user_name
             )
-            if not user: 
+            if not user:
                 logger.error(f"{user_name} login failed!")
-                raise HTTPException(status_code=500, detail=f"{user_name} login failed!")
-            elif user.password == user_password:
-                logger.error(f"{user_name} successfully login!")
-                #세션 구현
-                
+                raise HTTPException(status_code=401, detail="Invalid username or password")
+
+            if user.password != user_password:
+                logger.error(f"Invalid password for {user_name}")
+                raise HTTPException(status_code=401, detail="Invalid username or password")
+
+            # 세션 설정
+            request.session["user_id"] = 1
+            request.session["user_name"] = user.user_name
+
+            logger.info(f"{user_name} successfully logged in!")
+            return {"message": f"{user_name} successfully logged in!"}
+
         except Exception as e:
             logger.error(f"Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed {str(e)}")
+
 
         
     async def create_account(self, user_request: dict):
