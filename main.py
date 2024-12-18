@@ -1,56 +1,90 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from common.logging import setup_logger
 from database.mongodb_driver import mongodb
 from database.redis_driver import RedisDriver
 from services.es_service import ElasticsearchService
 from routers import user_router, prompt_router, bert_router, policy_router, dashboard_router, report_router
 
-
 logger = setup_logger()
 
-# FastAPI 앱 생성
 app = FastAPI(root_path="/api/v1")
 
-# 라우터 등록
-app.include_router(user_router.router)
-app.include_router(prompt_router.router)
-app.include_router(bert_router.router)
-app.include_router(policy_router.router)
-app.include_router(dashboard_router.router)
-app.include_router(report_router.router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://184.73.1.236:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Redis 및 Elasticsearch 서비스 초기화
-redis_driver = RedisDriver()
-es_service = ElasticsearchService()
+routers = [user_router, prompt_router, bert_router, policy_router, dashboard_router, report_router]
+for router in routers:
+    app.include_router(router.router)
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+async def initialize_service(service_name, initializer, app_state_key=None):
+    """
+    공통 서비스 초기화 함수.
+    :param service_name: 서비스 이름 (로깅 용도)
+    :param initializer: 초기화 함수 (비동기)
+    :param app_state_key: app.state에 저장할 키 (선택 사항)
+    """
+    try:
+        result = await initializer()
+        if app_state_key:
+            app.state[app_state_key] = result
+        logger.info(f"{service_name} 연결이 성공적으로 설정되었습니다.")
+        return result
+    except Exception as e:
+        logger.error(f"{service_name} 초기화 중 오류 발생: {e}")
+        return None
 
-# 서버 시작 시 리소스 초기화
 @app.on_event("startup")
 async def startup_event():
-    # MongoDB 연결
-    await mongodb.connect()
-    logger.info("MongoDB 연결이 설정되었습니다.")
+    logger.info("애플리케이션 시작 중...")
 
-    # Redis 연결 확인
-    await redis_driver.connect()
-    logger.info("Redis 연결이 설정되었습니다.")
+    await initialize_service("MongoDB", mongodb.connect)
 
-    # Elasticsearch는 별도 초기화 없이 사용 가능 (이미 초기화됨)
+    await initialize_service(
+        "Redis",
+        lambda: RedisDriver().connect(),
+        app_state_key="redis_driver"
+    )
 
-# 서버 종료 시 리소스 정리
+    await initialize_service(
+        "Elasticsearch",
+        lambda: ElasticsearchService(),
+        app_state_key="es_service"
+    )
+
+    logger.info("애플리케이션이 성공적으로 시작되었습니다.")
+
 @app.on_event("shutdown")
 async def shutdown_event():
-    # MongoDB 연결 종료
-    await mongodb.close()
-    logger.info("MongoDB 연결이 종료되었습니다.")
+    logger.info("애플리케이션 종료 중...")
 
-    # Redis 연결 종료
-    await redis_driver.close()
-    logger.info("Redis 연결이 종료되었습니다.")
+    await shutdown_service("MongoDB", mongodb.close)
 
-    # Elasticsearch 연결 종료
-    await es_service.close_connection()
-    logger.info("Elasticsearch 연결이 종료되었습니다.")
+    await shutdown_service(
+        "Redis",
+        lambda: app.state.redis_driver.close() if app.state.get("redis_driver") else None
+    )
+
+    await shutdown_service(
+        "Elasticsearch",
+        lambda: app.state.es_service.close_connection() if app.state.get("es_service") else None
+    )
+
+    logger.info("애플리케이션 종료가 완료되었습니다.")
+
+async def shutdown_service(service_name, closer):
+    """
+    공통 서비스 종료 함수.
+    :param service_name: 서비스 이름 (로깅 용도)
+    :param closer: 종료 함수 (비동기)
+    """
+    try:
+        await closer()
+        logger.info(f"{service_name} 연결이 성공적으로 종료되었습니다.")
+    except Exception as e:
+        logger.error(f"{service_name} 종료 중 오류 발생: {e}")
