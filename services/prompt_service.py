@@ -328,10 +328,13 @@ class PromptService:
                 prior_answer = sub_response
             
             # 응답 페르소나
-            if topic in ['ES', 'DB']:
-                yield self._create_stream_response(type="Query", data=query)
-                yield self._create_stream_response(type="QueryResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
-
+            if topic == "ES":
+                yield self._create_stream_response(type="ESQuery", data=query)
+                yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+            if topic == "DB":
+                yield self._create_stream_response(type="DBQuery", data=query)
+                yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+            
             summary_prompt = self.init_prompts["Summary"].copy()
             summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
             
