@@ -112,7 +112,7 @@ class UserRepository:
     async def create_account(self, user_request: dict):
         user = await self.mongodb_engine.find_one(
                 User,
-                User.user_name == user_id
+                User.user_name == user_request["user_id"]
         )
         try:
             user = User(

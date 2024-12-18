@@ -35,7 +35,7 @@ class GetAllBookmarkResponseSchema(BaseModel):
 
 class LoginFormSchema(BaseModel):
     user_name: str
-    user_password:str
+    user_password: str
 
     class Config:
         json_schema_extra = {
@@ -47,7 +47,7 @@ class LoginFormSchema(BaseModel):
     
 class CreateAccountFormSchema(BaseModel):
     user_name: str
-    user_password:str
+    user_password: str
     email: str
     AWS_PUBLIC_KEY: str
     AWS_PRIVATE_KEY: str
@@ -64,4 +64,3 @@ class CreateAccountFormSchema(BaseModel):
                 "CHAT_GPT_TOKEN: str"
             }
         }
-    
