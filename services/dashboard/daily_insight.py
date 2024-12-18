@@ -1,7 +1,7 @@
 import json
 import tiktoken
 
-encoder = tiktoken.encoding_for_model("gpt-4")
+encoder = tiktoken.encoding_for_model("gpt-4-mini")
 
 
 def process_logs_by_token_limit(logs, token_limit):
