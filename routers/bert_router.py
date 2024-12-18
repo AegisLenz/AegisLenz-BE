@@ -136,7 +136,7 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_ke
             sort_order="asc",
             size=100
         )
-        logger.info(f"Fetched logs: {logs}")
+        #logger.info(f"Fetched logs: {logs}")
         return logs, None if not logs else logs[-1].get("sort")
     except Exception as e:
         logger.error(f"Failed to fetch logs: {e}")
