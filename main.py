@@ -22,22 +22,22 @@ routers = [user_router, prompt_router, bert_router, policy_router, dashboard_rou
 for router in routers:
     app.include_router(router.router)
 
-app.state.redis_driver = None
-app.state.es_service = None
-
-async def initialize_service(service_name, initializer):
+async def initialize_service(service_name, initializer, app_state_key=None):
+    """
+    공통 서비스 초기화 함수.
+    :param service_name: 서비스 이름 (로깅 용도)
+    :param initializer: 초기화 함수 (비동기)
+    :param app_state_key: app.state에 저장할 키 (선택 사항)
+    """
     try:
-        await initializer()
+        result = await initializer()
+        if app_state_key:
+            app.state[app_state_key] = result
         logger.info(f"{service_name} 연결이 성공적으로 설정되었습니다.")
+        return result
     except Exception as e:
         logger.error(f"{service_name} 초기화 중 오류 발생: {e}")
-
-async def shutdown_service(service_name, closer):
-    try:
-        await closer()
-        logger.info(f"{service_name} 연결이 성공적으로 종료되었습니다.")
-    except Exception as e:
-        logger.error(f"{service_name} 종료 중 오류 발생: {e}")
+        return None
 
 @app.on_event("startup")
 async def startup_event():
@@ -45,20 +45,17 @@ async def startup_event():
 
     await initialize_service("MongoDB", mongodb.connect)
 
-    try:
-        redis_driver = RedisDriver()
-        await redis_driver.connect()
-        app.state.redis_driver = redis_driver
-        logger.info("Redis 연결이 성공적으로 설정되었습니다.")
-    except Exception as e:
-        logger.error(f"Redis 초기화 중 오류 발생: {e}")
+    await initialize_service(
+        "Redis",
+        lambda: RedisDriver().connect(),
+        app_state_key="redis_driver"
+    )
 
-    try:
-        es_service = ElasticsearchService()
-        app.state.es_service = es_service
-        logger.info("Elasticsearch 서비스가 성공적으로 초기화되었습니다.")
-    except Exception as e:
-        logger.error(f"Elasticsearch 초기화 중 오류 발생: {e}")
+    await initialize_service(
+        "Elasticsearch",
+        lambda: ElasticsearchService(),
+        app_state_key="es_service"
+    )
 
     logger.info("애플리케이션이 성공적으로 시작되었습니다.")
 
@@ -68,20 +65,26 @@ async def shutdown_event():
 
     await shutdown_service("MongoDB", mongodb.close)
 
-    try:
-        redis_driver = app.state.redis_driver
-        if redis_driver:
-            await redis_driver.close()
-            logger.info("Redis 연결이 성공적으로 종료되었습니다.")
-    except Exception as e:
-        logger.error(f"Redis 종료 중 오류 발생: {e}")
+    await shutdown_service(
+        "Redis",
+        lambda: app.state.redis_driver.close() if app.state.get("redis_driver") else None
+    )
 
-    try:
-        es_service = app.state.es_service
-        if es_service:
-            await es_service.close_connection()
-            logger.info("Elasticsearch 연결이 성공적으로 종료되었습니다.")
-    except Exception as e:
-        logger.error(f"Elasticsearch 종료 중 오류 발생: {e}")
+    await shutdown_service(
+        "Elasticsearch",
+        lambda: app.state.es_service.close_connection() if app.state.get("es_service") else None
+    )
 
     logger.info("애플리케이션 종료가 완료되었습니다.")
+
+async def shutdown_service(service_name, closer):
+    """
+    공통 서비스 종료 함수.
+    :param service_name: 서비스 이름 (로깅 용도)
+    :param closer: 종료 함수 (비동기)
+    """
+    try:
+        await closer()
+        logger.info(f"{service_name} 연결이 성공적으로 종료되었습니다.")
+    except Exception as e:
+        logger.error(f"{service_name} 종료 중 오류 발생: {e}")
