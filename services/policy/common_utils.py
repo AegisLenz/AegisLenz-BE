@@ -1,24 +1,9 @@
 import json
+import random
+import string
 
-def convert_list_to_dict(policy_list, key_field='userName'):
-    """
-    리스트 형태의 정책 데이터를 딕셔너리로 변환합니다.
-    key_field에 해당하는 값을 기준으로 딕셔너리의 키를 만듭니다.
-    """
-    if not isinstance(policy_list, list):
-        raise ValueError(f"Expected a list, but got {type(policy_list)}")
-    
-    result = {}
-    for item in policy_list:
-        if not isinstance(item, dict):
-            continue
-        
-        key = item.get(key_field, 'unknown')
-        if key not in result:
-            result[key] = []
-        result[key].append(item)
-    
-    return result
+def generate_random_sid():
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
 
 def load_json(file_path):
@@ -38,7 +23,7 @@ def generate_least_privilege_policy(actions, resources, effect="Allow"):
     """최소 권한 정책 생성."""
     return [
         {
-            "Sid": f"policy-{actions[0]}",
+            "Sid": generate_random_sid(),
             "Effect": effect,
             "Action": actions,
             "Resource": resources
@@ -46,7 +31,6 @@ def generate_least_privilege_policy(actions, resources, effect="Allow"):
     ]
 
 def merge_policies(policies):
-    """여러 정책을 병합."""
     merged_policy = {
         "PolicyName": "Aegislenz-Least-Privilege-Policy",
         "PolicyDocument" :{
@@ -54,7 +38,7 @@ def merge_policies(policies):
             "Statement": []
         }
     }
-    action_resource_map = {}
+    resource_action_map = {}
 
     for policy in policies:
         for statement in policy.get("Statement", []):
@@ -63,34 +47,34 @@ def merge_policies(policies):
             actions = [actions] if isinstance(actions, str) else actions
             resources = [resources] if isinstance(resources, str) else resources
 
-            for action in actions:
-                if action not in action_resource_map:
-                    action_resource_map[action] = set(resources)
+            for resource in resources:
+                if resource not in resource_action_map:
+                    resource_action_map[resource] = set(actions)
                 else:
-                    action_resource_map[action].update(resources)
+                    resource_action_map[resource].update(actions)
 
-    for action, resources in action_resource_map.items():
+    for resource, actions in resource_action_map.items():
         merged_policy["PolicyDocument"]["Statement"].append({
-            "Sid": f"policy-{action}",
+            "Sid": generate_random_sid(),
             "Effect": "Allow",
-            "Action": action,
-            "Resource": list(resources),
+            "Action": list(set(actions)),
+            "Resource": resource,
         })
-    
     return merged_policy
-
 
 def map_etc(event_source, event_name):
     """기본 정책 생성."""
     action = f"{event_source.split('.')[0]}:{event_name}"
-    return {
+    policy = {
         "Version": "2012-10-17",
         "Statement": [
             {
-                "Sid": f"policy-{action}",
+                "Sid": generate_random_sid(),
                 "Effect": "Allow",
                 "Action": action,
                 "Resource": "*",
             }
         ]
     }
+
+    return policy

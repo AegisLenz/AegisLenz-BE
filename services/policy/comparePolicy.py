@@ -17,29 +17,24 @@ def clustered_compare_policy(user_policies, clustered_policy_by_cloudtrail):
     logger.debug(f"clustered_policy_by_cloudtrail: {clustered_policy_by_cloudtrail}")
     
     should_remove_actions = {}
-    for userName, policies in clustered_policy_by_cloudtrail.items():
+    for userName in clustered_policy_by_cloudtrail.keys():
         if userName == "root":
-            user_policy = user_policies.get("root", [])
+            user_policy = user_policies.get("root", {})
         else:
-            user_policy = user_policies.get(userName, [])
-            
-        if isinstance(user_policy, dict):
-            user_policy = [user_policy]  # 단일 정책을 리스트로 변환
-            
-        should_remove_action = comparePolicy(user_policy, policies)
+            user_policy = user_policies.get(userName, {})
+        should_remove_action = comparePolicy(user_policy, clustered_policy_by_cloudtrail[userName])
         
         if userName not in should_remove_actions:
             should_remove_actions[userName] = []
         should_remove_actions[userName].append(should_remove_action)
-    
+
     return should_remove_actions
-
-
 
 def comparePolicy(userPolicy, policy_by_cloudTrail):
     # 삭제해야 할 Action 부분 반환
     least_privilege_action = set()
     should_remove_action = set()
+    
     # CloudTrail 정책에서 최소 권한 액션 수집
     for policies in policy_by_cloudTrail:
         for statement in policies.get("PolicyDocument", {}).get("Statement", []):
@@ -64,4 +59,4 @@ def comparePolicy(userPolicy, policy_by_cloudTrail):
                 if not matched:
                     should_remove_action.add(action)
 
-    return list(should_remove_action)
+    return should_remove_action
