@@ -60,69 +60,49 @@ def normalize_key(key: str) -> str:
     response_class=StreamingResponse,
     summary="Stream attack events via SSE",
 )
-async def sse_events(
-    request: Request,
-    bert_service: BERTService = Depends(),
-    redis_driver: RedisDriver = Depends(get_redis_driver),
-    es_service: ElasticsearchService = Depends(get_es_service),
-):
+async def sse_events(request: Request, bert_service: BERTService = Depends(), 
+                     redis_driver: RedisDriver = Depends(get_redis_driver), 
+                     es_service: ElasticsearchService = Depends(get_es_service)):
     async def event_generator():
         backfilling = True
         last_timestamp = datetime.now(timezone.utc) - timedelta(days=1)
         last_sort_key = None
-        max_retries = 3
-        error_count = 0
+
+        dynamic_sleep_interval = 1
 
         while True:
+            if await request.is_disconnected():
+                logger.info("Client disconnected from SSE stream.")
+                break
+
             try:
-                logs, last_sort_key = await fetch_logs_from_elasticsearch(
-                    es_service, last_timestamp, last_sort_key
-                )
+                logs, last_sort_key = await fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_key)
 
                 if logs:
-                    last_timestamp = logs[-1].get("@timestamp", datetime.now(timezone.utc).isoformat())
+                    last_timestamp = datetime.fromisoformat(logs[-1]["@timestamp"])
+                    dynamic_sleep_interval = 1
 
-                    for log in logs:
-                        source_ip = log.get("sourceIPAddress", "unknown")
-                        if source_ip == "unknown" or await redis_driver.is_processed(source_ip):
-                            continue
+                    tasks = [
+                        process_log(log["sourceIPAddress"], log, redis_driver, bert_service, es_service)
+                        for log in logs if log.get("sourceIPAddress") and not await redis_driver.is_processed(log.get("sourceIPAddress"))
+                    ]
 
-                        await redis_driver.set_log_queue(source_ip, log)
-                        buffer = await redis_driver.get_log_queue(source_ip)
-
-                        if len(buffer) == BUFFER_SIZE:
-                            logger.info(f"Buffer size reached: {BUFFER_SIZE}")
-                            logger.info(f"Buffer for prediction: {buffer}")
-                            prediction = await bert_service.predict_attack(buffer)
-                            logger.info(f"Prediction: {prediction}")
-
-                            if prediction != "No Attack":
-                                attack_data = await process_and_store_attack(
-                                    es_service, redis_driver, source_ip, log, prediction
-                                )
-                                if attack_data:
-                                    logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
-                                    yield f"data: {json.dumps(attack_data)}\n\n"
-                                    logger.info(f"SSE sent: {json.dumps(attack_data)}")
-
-                if backfilling and not logs:
-                    logger.info("Backfill complete. Switching to real-time streaming.")
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    for result in results:
+                        if result:
+                            yield f"data: {json.dumps(result)}\n\n"
+                else:
                     backfilling = False
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(dynamic_sleep_interval)
 
             except asyncio.CancelledError:
                 logger.info("Client disconnected from SSE stream.")
                 break
             except Exception as e:
-                error_count += 1
-                logger.error(f"Error in event generator: {e}")
-                if error_count >= max_retries:
-                    logger.critical("Max retries reached. Stopping event generator.")
-                    yield f"data: {json.dumps({'error': 'Max retries reached'})}\n\n"
-                    break
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                await asyncio.sleep(10)
+                logger.error(f"Error in SSE stream: {e}")
+                dynamic_sleep_interval = min(dynamic_sleep_interval * 2, 10)
+                await asyncio.sleep(dynamic_sleep_interval)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -142,6 +122,30 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_ke
         logger.error(f"Failed to fetch logs: {e}")
         return [], None
 
+
+async def process_log(source_ip, log, redis_driver, bert_service, es_service):
+    """
+    개별 로그를 처리하는 함수.
+    Redis에 로그를 저장하고, 버퍼 크기 도달 시 BERT 모델로 예측 후 공격으로 판정되면 Elasticsearch에 저장.
+    """
+    try:
+        await redis_driver.set_log_queue(source_ip, log)
+
+        buffer = await redis_driver.get_log_queue(source_ip)
+
+        if len(buffer) >= BUFFER_SIZE:
+            logger.info(f"Buffer size reached for {source_ip}: {len(buffer)} logs")
+
+            prediction = await bert_service.predict_attack(buffer)
+            logger.info(f"Prediction for {source_ip}: {prediction}")
+
+            if prediction != "No Attack":
+                return await process_and_store_attack(es_service, redis_driver, source_ip, log, prediction)
+
+        return None
+    except Exception as e:
+        logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
+        return None
 
 async def process_and_store_attack(es_service, redis_driver, source_ip, log, prediction):
     try:
@@ -167,4 +171,4 @@ async def process_and_store_attack(es_service, redis_driver, source_ip, log, pre
         return attack_data
     except Exception as e:
         logger.error(f"Failed to process and store attack: {e}")
-        return None 
+        return None
