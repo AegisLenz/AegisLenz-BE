@@ -389,33 +389,29 @@ class DashboardService:
             if not reports:
                 return ReportCheckResponseSchema(report_check=[])
             
-            try:
-                report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
-                    totalreport=reports
-                )
-            except KeyError as e:
-                logger.error(f"Prompt key missing for ReportCheck: {e}")
-                raise HTTPException(status_code=500, detail="Failed to format GPT prompt.")
-
-            report_check_prompt = [{"role": "system", "content": report_check_content}]
-            response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
-            logger.debug(f"GPT response received for user_id: {user_id}")
-        except Exception as e:
-            logger.error(f"Error fetching GPT response for user_id {user_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to process GPT response.")
-
-        try:
-            report_lines = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
-            if len(report_lines) != len(reports):
-                logger.error("Mismatch between GPT response and reports count.")
-                raise HTTPException(status_code=500, detail="Mismatch between GPT response and reports.")
-
             report_check = []
-            for report, line in zip(reports, report_lines):
+            for report in reports:
+                try:
+                    report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
+                        report=report.report_content
+                    )
+                except KeyError as e:
+                    logger.error(f"Prompt key missing for ReportCheck: {e}")
+                    raise HTTPException(status_code=500, detail="Failed to format GPT prompt.")
+                
+                report_check_prompt = [{"role": "system", "content": report_check_content}]
+                report_response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
+                logger.info(f"Report is summarized for report ID: {report.id}")
+
                 prompt_session = await self.prompt_repository.find_prompt_session_by_attack_detection_id(report.attack_detection_id)
                 if not prompt_session:
                     raise HTTPException(status_code=404, detail="Prompt session not found")
-                report_check.append(ReportSummary(report_id=report.id, prompt_session_id=prompt_session.id, summary=line))
+                
+                report_check.append(ReportSummary(
+                    report_id=report.id,
+                    prompt_session_id=prompt_session.id,
+                    summary=report_response)
+                )
 
             logger.info(f"Report check generated for user_id: {user_id}")
             return ReportCheckResponseSchema(report_check=report_check)
