@@ -247,7 +247,7 @@ class PromptService:
             user_content = (
                 "현재 날짜와 시간은 {time}입니다. 이 시간에 맞춰서 작업을 진행해주세요. "
                 "사용자의 자연어 질문: {question} 답변은 반드시 json 형식으로 나옵니다. "
-                "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
+                "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용인 user와 assistant의 content를 참고하여 응답을 반환하세요."
             ).format(
                 time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 question=user_input
@@ -272,7 +272,7 @@ class PromptService:
 
             # 분류기 결과에 따른 페르소나 로직 수행
             final_responses = {}
-            prior_answer, prior_question ,prior_return = None, None, None
+            prior_answer, prior_question, prior_return = None, None, None
             query, query_result = None, None
             topic = ""
             isES = False
@@ -320,10 +320,8 @@ class PromptService:
                     else:
                         sub_response = await self._normal_persona(user_sub_question, history)
                     needed_detail = False
-                    needed_detail = False
                 elif topic == "Normal":
                     sub_response = await self._normal_persona(user_sub_question, history)
-                    needed_detail = False
                     needed_detail = False
                 else:
                     raise HTTPException(status_code=500, detail="Unknown persona type.")
@@ -346,10 +344,10 @@ class PromptService:
             # 응답 페르소나
             if isES:
                 yield self._create_stream_response(type="ESQuery", data=query)
-                yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+                yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             if isDB:
                 yield self._create_stream_response(type="DBQuery", data=query)
-                yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False))
+                yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             
             if needed_detail:
                 summary_prompt = self.init_prompts["Summary"].copy()
