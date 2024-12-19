@@ -116,6 +116,7 @@ class PromptService:
         classify_prompt.append({"role": "user", "content": user_question})
 
         response = await self.gpt_service.get_response(classify_prompt)
+        logger.info(response)
         response_data = json.loads(response)
         sub_questions = response_data.get("sub_questions")
 
@@ -243,7 +244,7 @@ class PromptService:
         try:
             user_content = (
                 "현재 날짜와 시간은 {time}입니다. 이 시간에 맞춰서 작업을 진행해주세요. "
-                "사용자의 자연어 질문: {question} "
+                "사용자의 자연어 질문: {question} 답변은 반드시 json 형식으로 나옵니다. "
                 "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용인 user와 assistant의 content를 참고하여 응답을 반환하세요."
             ).format(
                 time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -256,7 +257,7 @@ class PromptService:
             try:
                 selected_dashboard, sub_questions = await asyncio.gather(
                     self._dashboard_persona(user_question),
-                    self._classify_persona(user_input, history)
+                    self._classify_persona(user_content, history)
                 )
                 yield self._create_stream_response(type="Dashboard", data=selected_dashboard)
 
@@ -361,8 +362,6 @@ class PromptService:
                 yield self._create_stream_response(type="ESQuery", data=json.loads(query))
                 yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             if isDB:
-                logger.info(type(json.loads(query)))
-                logger.info(type(query_result))
                 yield self._create_stream_response(type="DBQuery", data=json.loads(query))
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             
