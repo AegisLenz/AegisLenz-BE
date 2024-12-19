@@ -107,7 +107,7 @@ class UserRepository:
             logger.error(f"Error deleting bookmark. Bookmar ID: '{bookmark_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete bookmark for bookmark ID '{bookmark_id}': {str(e)}")
 
-    async def login(self, request: Request, user_name:str, user_password:str):
+    async def login(self, user_name: str, user_password: str):
         try:
             user = await self.mongodb_engine.find_one(
                 User,
@@ -121,41 +121,35 @@ class UserRepository:
                 logger.error(f"Invalid password for {user_name}")
                 raise HTTPException(status_code=401, detail="Invalid username or password")
 
-            # 세션 설정
-            request.session["user_id"] = 1
-            request.session["user_name"] = user.user_name
-
             logger.info(f"{user_name} successfully logged in!")
             return {"message": f"{user_name} successfully logged in!"}
 
         except Exception as e:
             logger.error(f"Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed {str(e)}")
-
-
         
     async def create_account(self, user_request: dict):
         user = await self.mongodb_engine.find_one(
                 User,
-                User.user_name == user_request["user_name"]
+                User.user_name == user_request.user_name
         )
         if user:
-            logger.error(f"{user_request["user_name"]} already exist!")
-            raise HTTPException(status_code=500, detail=f"{user_request["user_name"]} already exist!")
+            logger.error(f"{user_request.user_name} already exist!")
+            raise HTTPException(status_code=500, detail=f"{user_request.user_name} already exist!")
         try:
             user = User(
                 id="1",
-                email=user_request["email"] or "",
-                user_name=user_request["user_name"],
-                password=user_request["user_password"],
-                aws_access_key_id=user_request["aws_access_key_id"] or "",
-                aws_secret_access_key=user_request["aws_secret_access_key"] or "",
-                openai_api_key=user_request["openai_api_key"] or "",
+                email=user_request.email or "",
+                user_name=user_request.user_name,
+                password=user_request.user_password,
+                aws_access_key_id=user_request.AWS_PUBLIC_KEY or "",
+                aws_secret_access_key=user_request.AWS_PRIVATE_KEY or "",
+                openai_api_key=user_request.CHAT_GPT_TOKEN or "",
                 created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
                 updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
             )
             await self.mongodb_engine.save(user)
-            return {"message": f"The user has been successfully created '{user_request["user_name"]}'"}
+            return {"message": f"The user has been successfully created '{user_request.user_name}'"}
         except Exception as e:
-            logger.error(f"Error adding create_account. user_name: '{user_request["user_name"]}', Error: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to add create_account for user_name '{user_request["user_name"]}': {str(e)}")
+            logger.error(f"Error adding create_account. user_name: '{user_request.user_name}', Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to add create_account for user_name '{user_request.user_name}': {str(e)}")

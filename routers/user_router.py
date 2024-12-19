@@ -39,5 +39,4 @@ async def login(request: LoginFormSchema = Body(...), user_service: UserService 
 
 @router.post("/register")
 async def create_account(request: CreateAccountFormSchema = Body(...), user_service: UserService = Depends()):
-    # 서비스 호출
     return await user_service.create_account(request)
