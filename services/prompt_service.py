@@ -181,16 +181,12 @@ class PromptService:
         policy_prompt = history.copy()
         policy_prompt.append({"role": "system", "content": policy_content})
         policy_prompt.append(user_sub_question)
-
-        sub_response = await self.gpt_service.get_response(policy_prompt, json_format=False)
-        return sub_response
+        return policy_prompt
 
     async def _normal_persona(self, user_sub_question: dict, history: list):
         normal_prompt = history.copy()
         normal_prompt.append(user_sub_question)
-
-        sub_response = await self.gpt_service.get_response(normal_prompt, json_format=False)
-        return sub_response
+        return normal_prompt
 
     async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions) -> list:
         response = await self.gpt_service.get_response(recomm_history, json_format=False, recomm=True)
@@ -278,8 +274,9 @@ class PromptService:
             isES = False
             isDB = False
             needed_detail = True
+            assistant_response = ""
             
-            for sub_question in sub_questions:
+            for idx, sub_question in enumerate(sub_questions, start=1):
                 topic = sub_question["topics"]
                 question = ""
                 sub_response = ""
@@ -294,7 +291,7 @@ class PromptService:
 
                 user_sub_content = (
                     "현재 날짜와 시간은 {time}입니다. 이 시간에 맞춰서 작업을 진행해주세요. "
-                    "사용자의 자연어 질문: {question} 답변은 반드시 json 형식으로 나옵니다. "
+                    "사용자의 자연어 질문: {question} "
                     "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
                 ).format(
                     time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -315,14 +312,31 @@ class PromptService:
                         isDB = True
                         isES = False
                 elif topic == "Policy":
+                    needed_detail = False
+
                     if is_attack:
-                        sub_response = await self._policy_persona(user_sub_question, history)
+                        prompt = await self._policy_persona(user_sub_question, history)
                     else:
-                        sub_response = await self._normal_persona(user_sub_question, history)
-                    needed_detail = False
+                        prompt = await self._normal_persona(user_sub_question, history)
+                    
+                    if idx == len(sub_questions):
+                        async for chunk in self.gpt_service.stream_response(prompt):
+                            assistant_response += chunk
+                            yield self._create_stream_response(type="Summary", data=chunk)
+                        sub_response = assistant_response
+                    else:
+                        sub_response = await self.gpt_service.get_response(prompt, json_format=False)
                 elif topic == "Normal":
-                    sub_response = await self._normal_persona(user_sub_question, history)
                     needed_detail = False
+                    prompt = await self._normal_persona(user_sub_question, history)
+
+                    if idx == len(sub_questions):
+                        async for chunk in self.gpt_service.stream_response(prompt):
+                            assistant_response += chunk
+                            yield self._create_stream_response(type="Summary", data=chunk)
+                        sub_response = assistant_response
+                    else:
+                        sub_response = await self.gpt_service.get_response(prompt, json_format=False)
                 else:
                     raise HTTPException(status_code=500, detail="Unknown persona type.")
                 
@@ -353,7 +367,6 @@ class PromptService:
                 summary_prompt = self.init_prompts["Summary"].copy()
                 summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
 
-                assistant_response = ""
                 async for chunk in self.gpt_service.stream_response(summary_prompt):
                     assistant_response += chunk
                     yield self._create_stream_response(type="Summary", data=chunk)
