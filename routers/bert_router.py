@@ -98,24 +98,24 @@ async def sse_events(
                             logger.info(f"Buffer size reached: {BUFFER_SIZE}")
                             prediction = await bert_service.predict_attack(buffer)
                             logger.info(f"Prediction: {prediction}")
+                            for predict in prediction:
+                                if predict != "No Attack":
+                                    attack_data = await process_and_store_attack(
+                                        es_service, redis_driver, source_ip, log, predict
+                                    )
+                                    
+                                    if attack_data:
+                                        user_id = log.get("userId", "default_user")
+                                        attack_info = {
+                                            "attack_time": attack_data["timestamp"],
+                                            "attack_type": attack_data["mitreAttackTechnique"],
+                                            "logs": buffer,
+                                        }
+                                        asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
 
-                            if prediction != "No Attack":
-                                attack_data = await process_and_store_attack(
-                                    es_service, redis_driver, source_ip, log, prediction
-                                )
-
-                                if attack_data:
-                                    user_id = log.get("userId", "default_user")
-                                    attack_info = {
-                                        "attack_time": attack_data["timestamp"],
-                                        "attack_type": attack_data["mitreAttackTechnique"],
-                                        "logs": buffer,
-                                    }
-                                    asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
-
-                                    logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
-                                    yield f"data: {json.dumps(attack_data)}\n\n"
-                                    logger.info(f"SSE sent: {json.dumps(attack_data)}")
+                                        logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
+                                        yield f"data: {json.dumps(attack_data)}\n\n"
+                                        logger.info(f"SSE sent: {json.dumps(attack_data)}")
 
                 if backfilling and not logs:
                     logger.info("Backfill complete. Switching to real-time streaming.")

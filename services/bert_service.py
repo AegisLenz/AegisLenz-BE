@@ -77,8 +77,13 @@ class BERTService:
     async def predict_attack(self, log_data: str):
         try:
             preprocessed_logs = await self.predictor.preprocess_logs(log_data)
-            prediction = await self.predictor.predict(preprocessed_logs)
-            return prediction
+            window_size = 5
+            windowed_logs = await self.predictor.sliding_window(preprocessed_logs, window_size)
+            prediction = await self.predictor.predict(windowed_logs)
+            num_logs = len(preprocessed_logs)
+            final_labels = await self.predictor.consolidate_predictions(prediction, num_logs, window_size)
+            return final_labels
+        
         except Exception as e:
             logger.error(f"Error during attack prediction: {e}")
             raise HTTPException(status_code=500, detail="Failed to predict attack.")
