@@ -74,6 +74,10 @@ async def sse_events(
         error_count = 0
 
         while True:
+            if await request.is_disconnected():
+                logger.info("Client disconnected from SSE stream.")
+                break
+
             try:
                 logs, last_sort_key = await fetch_logs_from_elasticsearch(
                     es_service, last_timestamp, last_sort_key
@@ -90,7 +94,7 @@ async def sse_events(
                         await redis_driver.set_log_queue(source_ip, log)
                         buffer = await redis_driver.get_log_queue(source_ip)
 
-                        if len(buffer) == BUFFER_SIZE:
+                        if len(buffer) >= BUFFER_SIZE:
                             logger.info(f"Buffer size reached: {BUFFER_SIZE}")
                             logger.info(f"Buffer for prediction: {buffer}")
                             prediction = await bert_service.predict_attack(buffer)
@@ -100,7 +104,16 @@ async def sse_events(
                                 attack_data = await process_and_store_attack(
                                     es_service, redis_driver, source_ip, log, prediction
                                 )
+
                                 if attack_data:
+                                    user_id = log.get("userId", "default_user")
+                                    attack_info = {
+                                        "attack_time": attack_data["timestamp"],
+                                        "attack_type": attack_data["mitreAttackTechnique"],
+                                        "logs": buffer,
+                                    }
+                                    asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
+
                                     logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
                                     yield f"data: {json.dumps(attack_data)}\n\n"
                                     logger.info(f"SSE sent: {json.dumps(attack_data)}")
@@ -116,7 +129,7 @@ async def sse_events(
                 break
             except Exception as e:
                 error_count += 1
-                logger.error(f"Error in event generator: {e}")
+                logger.error(f"Error in SSE stream: {e}")
                 if error_count >= max_retries:
                     logger.critical("Max retries reached. Stopping event generator.")
                     yield f"data: {json.dumps({'error': 'Max retries reached'})}\n\n"
@@ -125,7 +138,6 @@ async def sse_events(
                 await asyncio.sleep(10)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
 
 async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_key):
     try:
@@ -136,12 +148,30 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_ke
             sort_order="asc",
             size=100
         )
-        #logger.info(f"Fetched logs: {logs}")
         return logs, None if not logs else logs[-1].get("sort")
     except Exception as e:
         logger.error(f"Failed to fetch logs: {e}")
         return [], None
 
+async def process_log(source_ip, log, redis_driver, bert_service, es_service):
+    try:
+        await redis_driver.set_log_queue(source_ip, log)
+
+        buffer = await redis_driver.get_log_queue(source_ip)
+
+        if len(buffer) >= BUFFER_SIZE:
+            logger.info(f"Buffer size reached for {source_ip}: {len(buffer)} logs")
+
+            prediction = await bert_service.predict_attack(buffer)
+            logger.info(f"Prediction for {source_ip}: {prediction}")
+
+            if prediction != "No Attack":
+                return await process_and_store_attack(es_service, redis_driver, source_ip, log, prediction)
+
+        return None
+    except Exception as e:
+        logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
+        return None
 
 async def process_and_store_attack(es_service, redis_driver, source_ip, log, prediction):
     try:
@@ -167,4 +197,11 @@ async def process_and_store_attack(es_service, redis_driver, source_ip, log, pre
         return attack_data
     except Exception as e:
         logger.error(f"Failed to process and store attack: {e}")
-        return None 
+        return None
+
+async def handle_post_detection(bert_service: BERTService, user_id: str, attack_info: dict):
+    try:
+        await bert_service.process_after_detection(user_id, attack_info)
+        logger.info(f"Post-detection processing completed for user_id: {user_id}")
+    except Exception as e:
+        logger.error(f"Error in post-detection processing for user_id {user_id}: {e}", exc_info=True)

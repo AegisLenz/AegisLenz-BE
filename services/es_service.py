@@ -92,7 +92,7 @@ class ElasticsearchService:
                     logger.info(f"Document with ID '{doc_id}' already exists with same content. Skipping save.")
                     return
 
-            await self.es.index(index=index, id=doc_id, body=body, request_timeout=timeout)
+            await self.es.index(index=index, id=doc_id, body=body, request_timeout=timeout, refresh="wait_for")
             logger.info(f"Document with ID '{doc_id}' saved to index '{index}'.")
         except es_exceptions.ConnectionError as e:
             raise ElasticsearchConnectionError(f"Connection error while saving document: {str(e)}")

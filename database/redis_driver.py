@@ -81,19 +81,6 @@ class RedisDriver:
 
         await self._execute_with_retry(_set_operation)
 
-    async def set_bulk_logs(self, source_ip: str, logs: List[dict], ttl: int = 3600):
-        """Redis 로그 큐에 여러 로그 추가."""
-        key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
-
-        async def _bulk_operation():
-            async with self.redis_client.pipeline() as pipe:
-                for log_data in logs:
-                    pipe.rpush(key, json.dumps(log_data))
-                pipe.expire(key, ttl)
-                await pipe.execute()
-
-        await self._execute_with_retry(_bulk_operation)
-
     async def get_log_queue(self, source_ip: str) -> List[Dict]:
         """Redis 로그 큐에서 로그 가져오기."""
         key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
@@ -121,12 +108,3 @@ class RedisDriver:
             return await self.redis_client.exists(key)
 
         return await self._execute_with_retry(_check_operation)
-
-    async def log_prediction(self, source_ip: str, prediction_data: dict) -> None:
-        """예측 결과 저장."""
-        key = f"{REDIS_KEY_PREFIX['PREDICTION']}:{source_ip}"
-
-        async def _log_operation():
-            await self.redis_client.set(key, json.dumps(prediction_data), ex=3600)
-
-        await self._execute_with_retry(_log_operation)
