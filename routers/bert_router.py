@@ -96,7 +96,6 @@ async def sse_events(
 
                         if len(buffer) >= BUFFER_SIZE:
                             logger.info(f"Buffer size reached: {BUFFER_SIZE}")
-                            logger.info(f"Buffer for prediction: {buffer}")
                             prediction = await bert_service.predict_attack(buffer)
                             logger.info(f"Prediction: {prediction}")
 
