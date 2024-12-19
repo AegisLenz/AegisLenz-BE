@@ -308,12 +308,12 @@ class PromptService:
                         query, query_result = await self._es_persona(user_sub_question, history)
                         sub_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
                         isES = True
-                        isDB = isES ^ isDB
+                        isDB = False
                     elif topic == "DB":
                         query, query_result = await self._db_persona(user_sub_question, history, user_id)
                         sub_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
                         isDB = True
-                        isES = isDB ^ isES
+                        isES = False
                 elif topic == "Policy":
                     if is_attack:
                         sub_response = await self._policy_persona(user_sub_question, history)
