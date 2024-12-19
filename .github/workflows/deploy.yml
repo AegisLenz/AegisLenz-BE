@@ -16,6 +16,7 @@ jobs:
         with:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           persist-credentials: false
+          submodules: true
 
       # SSH 키 설정 (원격 서버 및 Private Repo 인증)
       - name: Setup SSH Keys for Private Repo and Server

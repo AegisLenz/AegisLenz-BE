@@ -32,3 +32,48 @@ class GetAllBookmarkResponseSchema(BaseModel):
                 ]
             }
         }
+
+
+class LoginFormSchema(BaseModel):
+    user_name: str
+    user_password: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_name": "example_user",
+                "user_password": "example_password"
+            }
+        }
+
+ 
+class CreateAccountFormSchema(BaseModel):
+    user_name: str
+    user_password: str
+    email: str
+    AWS_PUBLIC_KEY: str
+    AWS_PRIVATE_KEY: str
+    CHAT_GPT_TOKEN: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_name": "example_user",
+                "user_password": "example_password",
+                "email": "example@example.com",
+                "AWS_PUBLIC_KEY": "example_public_key",
+                "AWS_PRIVATE_KEY": "example_private_key",
+                "CHAT_GPT_TOKEN": "example_token"
+            }
+        }
+
+
+class LoginResponseSchema(BaseModel):
+    user_id: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "1"
+            }
+        }

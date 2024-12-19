@@ -9,6 +9,7 @@ from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from services.policy_service import PolicyService
 from services.gpt_service import GPTService
 from services.dashboard.daily_insight import process_logs_by_token_limit
+from services.policy.filter_original_policy import filter_original_policy
 from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
 from repositories.report_repository import ReportRepository
@@ -233,7 +234,8 @@ class DashboardService:
             try:
                 # 최소 권한 정책 생성
                 least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-                problem_iam_cnt = len(least_privilege_policy["least_privilege_policy"])
+                problem_iam = filter_original_policy(least_privilege_policy["original_policy"], least_privilege_policy["least_privilege_policy"])
+                problem_iam_cnt = len(problem_iam)
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error generating least privilege policy for user_id {user_id}: {str(e)}")
 
@@ -244,6 +246,11 @@ class DashboardService:
             # 평균 점수
             score = (attack_log_score + problem_iam_score) / 2
             
+            logger.info(f"{total_attack_log_cnt}, {total_log_cnt}")
+            logger.info(f"{problem_iam_cnt}, {iam_cnt}")
+            logger.info(attack_log_score)
+            logger.info(problem_iam_score)
+            logger.info(score)
             return ScoreResponseSchema(score=score)
         except Exception as e:
             logger.error(f"Error calculating score for user_id {user_id}: {e}")
@@ -389,33 +396,29 @@ class DashboardService:
             if not reports:
                 return ReportCheckResponseSchema(report_check=[])
             
-            try:
-                report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
-                    totalreport=reports
-                )
-            except KeyError as e:
-                logger.error(f"Prompt key missing for ReportCheck: {e}")
-                raise HTTPException(status_code=500, detail="Failed to format GPT prompt.")
-
-            report_check_prompt = [{"role": "system", "content": report_check_content}]
-            response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
-            logger.debug(f"GPT response received for user_id: {user_id}")
-        except Exception as e:
-            logger.error(f"Error fetching GPT response for user_id {user_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to process GPT response.")
-
-        try:
-            report_lines = [line.strip().strip("\"") for line in response.splitlines() if line.strip()]
-            if len(report_lines) != len(reports):
-                logger.error("Mismatch between GPT response and reports count.")
-                raise HTTPException(status_code=500, detail="Mismatch between GPT response and reports.")
-
             report_check = []
-            for report, line in zip(reports, report_lines):
+            for report in reports:
+                try:
+                    report_check_content = self.init_prompts["ReportCheck"][0]["content"].format(
+                        report=report.report_content
+                    )
+                except KeyError as e:
+                    logger.error(f"Prompt key missing for ReportCheck: {e}")
+                    raise HTTPException(status_code=500, detail="Failed to format GPT prompt.")
+                
+                report_check_prompt = [{"role": "system", "content": report_check_content}]
+                report_response = await self.gpt_service.get_response(report_check_prompt, json_format=False)
+                logger.info(f"Report is summarized for report ID: {report.id}")
+
                 prompt_session = await self.prompt_repository.find_prompt_session_by_attack_detection_id(report.attack_detection_id)
                 if not prompt_session:
                     raise HTTPException(status_code=404, detail="Prompt session not found")
-                report_check.append(ReportSummary(report_id=report.id, prompt_session_id=prompt_session.id, summary=line))
+                
+                report_check.append(ReportSummary(
+                    report_id=report.id,
+                    prompt_session_id=prompt_session.id,
+                    summary=report_response)
+                )
 
             logger.info(f"Report check generated for user_id: {user_id}")
             return ReportCheckResponseSchema(report_check=report_check)

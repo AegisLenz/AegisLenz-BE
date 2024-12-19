@@ -1,7 +1,7 @@
 from fastapi import Depends
 from odmantic import ObjectId
 from repositories.user_repository import UserRepository
-from schemas.user_schema import GetAllBookmarkResponseSchema, BookmarkSchema
+from schemas.user_schema import GetAllBookmarkResponseSchema, BookmarkSchema, LoginResponseSchema
 from common.logging import setup_logger
 
 logger = setup_logger()
@@ -37,3 +37,10 @@ class UserService:
 
     async def delete_bookmark(self, bookmark_id: ObjectId):
         return await self.user_repository.delete_bookmark(bookmark_id)
+
+    async def login(self, user_name: str, user_password: str) -> LoginResponseSchema:
+        user_id = await self.user_repository.login(user_name, user_password)
+        return LoginResponseSchema(user_id=user_id)
+    
+    async def create_account(self, user_request: dict):
+        return await self.user_repository.create_account(user_request)
