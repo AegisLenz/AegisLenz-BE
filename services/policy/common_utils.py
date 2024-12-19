@@ -57,7 +57,7 @@ def merge_policies(policies):
         merged_policy["PolicyDocument"]["Statement"].append({
             "Sid": generate_random_sid(),
             "Effect": "Allow",
-            "Action": list(actions),
+            "Action": list(set(actions)),
             "Resource": resource,
         })
     return merged_policy
