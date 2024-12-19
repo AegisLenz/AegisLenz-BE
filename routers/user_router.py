@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Body
 from odmantic import ObjectId
 from services.user_service import UserService
-from schemas.user_schema import CreateBookmarkRequestSchema, GetAllBookmarkResponseSchema, LoginFormSchema, CreateAccountFormSchema
+from schemas.user_schema import CreateBookmarkRequestSchema, GetAllBookmarkResponseSchema, LoginFormSchema, CreateAccountFormSchema, LoginResponseSchema
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -33,7 +33,7 @@ async def get_all_bookmark(user_id: str = "1", user_service: UserService = Depen
 async def delete_bookmark(bookmark_id: ObjectId, user_service: UserService = Depends()):
     return await user_service.delete_bookmark(bookmark_id)
 
-@router.post("/login")
+@router.post("/login", response_model=LoginResponseSchema)
 async def login(request: LoginFormSchema = Body(...), user_service: UserService = Depends()):
     return await user_service.login(request.user_name, request.user_password)
 

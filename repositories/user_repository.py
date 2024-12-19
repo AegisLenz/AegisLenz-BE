@@ -100,7 +100,7 @@ class UserRepository:
             logger.error(f"Error deleting bookmark. Bookmar ID: '{bookmark_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete bookmark for bookmark ID '{bookmark_id}': {str(e)}")
 
-    async def login(self, user_name: str, user_password: str):
+    async def login(self, user_name: str, user_password: str) -> str:
         try:
             user = await self.mongodb_engine.find_one(
                 User,
@@ -115,7 +115,7 @@ class UserRepository:
                 raise HTTPException(status_code=401, detail="Invalid username or password")
 
             logger.info(f"{user_name} successfully logged in!")
-            return {"message": f"{user_name} successfully logged in!"}
+            return user.id
 
         except Exception as e:
             logger.error(f"Error: {e}")

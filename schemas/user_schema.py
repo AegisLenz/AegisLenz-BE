@@ -66,3 +66,14 @@ class CreateAccountFormSchema(BaseModel):
                 "CHAT_GPT_TOKEN": "example_token"
             }
         }
+
+
+class LoginResponseSchema(BaseModel):
+    user_id: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "1"
+            }
+        }
