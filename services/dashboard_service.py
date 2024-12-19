@@ -9,6 +9,7 @@ from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from services.policy_service import PolicyService
 from services.gpt_service import GPTService
 from services.dashboard.daily_insight import process_logs_by_token_limit
+from services.policy.filter_original_policy import filter_original_policy
 from repositories.asset_repository import AssetRepository
 from repositories.bert_repository import BertRepository
 from repositories.report_repository import ReportRepository
@@ -233,7 +234,8 @@ class DashboardService:
             try:
                 # 최소 권한 정책 생성
                 least_privilege_policy = await self.policy_service.generate_least_privilege_policy(user_id)
-                problem_iam_cnt = len(least_privilege_policy["least_privilege_policy"])
+                problem_iam = filter_original_policy(least_privilege_policy["original_policy"], least_privilege_policy["least_privilege_policy"])
+                problem_iam_cnt = len(problem_iam)
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error generating least privilege policy for user_id {user_id}: {str(e)}")
 
@@ -244,6 +246,11 @@ class DashboardService:
             # 평균 점수
             score = (attack_log_score + problem_iam_score) / 2
             
+            logger.info(f"{total_attack_log_cnt}, {total_log_cnt}")
+            logger.info(f"{problem_iam_cnt}, {iam_cnt}")
+            logger.info(attack_log_score)
+            logger.info(problem_iam_score)
+            logger.info(score)
             return ScoreResponseSchema(score=score)
         except Exception as e:
             logger.error(f"Error calculating score for user_id {user_id}: {e}")
