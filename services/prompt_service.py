@@ -181,16 +181,12 @@ class PromptService:
         policy_prompt = history.copy()
         policy_prompt.append({"role": "system", "content": policy_content})
         policy_prompt.append(user_sub_question)
-
-        sub_response = await self.gpt_service.get_response(policy_prompt, json_format=False)
-        return sub_response
+        return policy_prompt
 
     async def _normal_persona(self, user_sub_question: dict, history: list):
         normal_prompt = history.copy()
         normal_prompt.append(user_sub_question)
-
-        sub_response = await self.gpt_service.get_response(normal_prompt, json_format=False)
-        return sub_response
+        return normal_prompt
 
     async def _recommend_questions_persona(self, recomm_history, pre_recomm_questions) -> list:
         response = await self.gpt_service.get_response(recomm_history, json_format=False, recomm=True)
@@ -272,23 +268,30 @@ class PromptService:
 
             # 분류기 결과에 따른 페르소나 로직 수행
             final_responses = {}
-            prior_answer, prior_question = None, None
+            prior_answer, prior_question, prior_return = None, None, None
             query, query_result = None, None
             topic = ""
-
-            for sub_question in sub_questions:
+            isES = False
+            isDB = False
+            needed_detail = True
+            assistant_response = ""
+            
+            for idx, sub_question in enumerate(sub_questions, start=1):
                 topic = sub_question["topics"]
                 question = ""
                 sub_response = ""
+                prior_topic = None
 
                 if prior_answer:
-                    question += f"\n 이전 질문: {prior_question}\n 이전 응답 데이터: {prior_answer} \n 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
-                
+                    if prior_topic in ["ES", "DB"]:
+                        question += f"\n 이전 질문: {prior_question}\n 이전 생성 쿼리문: {prior_answer} \n 이전 쿼리 반환 값(응답 데이터): {prior_return} 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
+                    else:
+                        question += f"\n 이전 질문: {prior_question}\n 이전 응답 데이터: {prior_answer} \n 반드시 이전 응답 데이터를 반영해서 다음 질문을 해결하세요."
                 question += sub_question["question"]
 
                 user_sub_content = (
                     "현재 날짜와 시간은 {time}입니다. 이 시간에 맞춰서 작업을 진행해주세요. "
-                    "사용자의 자연어 질문: {question} 답변은 반드시 json 형식으로 나옵니다. "
+                    "사용자의 자연어 질문: {question} "
                     "만약 해당 질문에서 이전 내용을 반영해야 한다면, 이전 내용의 user와 assistant를 참고하여 응답을 반환하세요."
                 ).format(
                     time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -301,16 +304,39 @@ class PromptService:
                     if topic == "ES":
                         query, query_result = await self._es_persona(user_sub_question, history)
                         sub_response = json.dumps({"es_query": query, "es_result": query_result}, ensure_ascii=False)
+                        isES = True
+                        isDB = False
                     elif topic == "DB":
                         query, query_result = await self._db_persona(user_sub_question, history, user_id)
                         sub_response = json.dumps({"db_query": query, "db_result": query_result}, default=json_util.default, ensure_ascii=False)
+                        isDB = True
+                        isES = False
                 elif topic == "Policy":
+                    needed_detail = False
+
                     if is_attack:
-                        sub_response = await self._policy_persona(user_sub_question, history)
+                        prompt = await self._policy_persona(user_sub_question, history)
                     else:
-                        sub_response = await self._normal_persona(user_sub_question, history)
+                        prompt = await self._normal_persona(user_sub_question, history)
+                    
+                    if idx == len(sub_questions):
+                        async for chunk in self.gpt_service.stream_response(prompt):
+                            assistant_response += chunk
+                            yield self._create_stream_response(type="Summary", data=chunk)
+                        sub_response = assistant_response
+                    else:
+                        sub_response = await self.gpt_service.get_response(prompt, json_format=False)
                 elif topic == "Normal":
-                    sub_response = await self._normal_persona(user_sub_question, history)
+                    needed_detail = False
+                    prompt = await self._normal_persona(user_sub_question, history)
+
+                    if idx == len(sub_questions):
+                        async for chunk in self.gpt_service.stream_response(prompt):
+                            assistant_response += chunk
+                            yield self._create_stream_response(type="Summary", data=chunk)
+                        sub_response = assistant_response
+                    else:
+                        sub_response = await self.gpt_service.get_response(prompt, json_format=False)
                 else:
                     raise HTTPException(status_code=500, detail="Unknown persona type.")
                 
@@ -326,23 +352,25 @@ class PromptService:
 
                 prior_question = sub_question['question']
                 prior_answer = sub_response
-            
+                prior_topic = topic
+                prior_return = query_result
+                
             # 응답 페르소나
-            if topic == "ES":
+            if isES:
                 yield self._create_stream_response(type="ESQuery", data=query)
                 yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
-            if topic == "DB":
+            if isDB:
                 yield self._create_stream_response(type="DBQuery", data=query)
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             
-            summary_prompt = self.init_prompts["Summary"].copy()
-            summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
-            
-            assistant_response = ""
-            async for chunk in self.gpt_service.stream_response(summary_prompt):
-                assistant_response += chunk
-                yield self._create_stream_response(type="Summary", data=chunk)
-            logger.info(f"final response: {assistant_response}")
+            if needed_detail:
+                summary_prompt = self.init_prompts["Summary"].copy()
+                summary_prompt.append({"role": "user", "content":  f"{final_responses}"})
+
+                async for chunk in self.gpt_service.stream_response(summary_prompt):
+                    assistant_response += chunk
+                    yield self._create_stream_response(type="Summary", data=chunk)
+                logger.info(f"final response: {assistant_response}")
 
             # 공격에 대한 프롬프트 대화창인 경우 추천 질문 생성
             if is_attack:
