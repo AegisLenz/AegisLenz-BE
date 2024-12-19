@@ -365,7 +365,6 @@ class PromptService:
                 logger.info(type(query_result))
                 yield self._create_stream_response(type="DBQuery", data=json.loads(query))
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
-                
             
             if needed_detail:
                 summary_prompt = self.init_prompts["Summary"].copy()
