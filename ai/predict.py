@@ -34,7 +34,7 @@ class BERTPredictor:
 
         return preprocessed_data
     
-    async def sliding_window(logs, window_size=5):
+    async def sliding_window(self, logs, window_size=5):
         windowed_logs = []
         for i in range(len(logs) - window_size + 1):
             window_logs = logs[i:i + window_size]
@@ -42,7 +42,7 @@ class BERTPredictor:
 
         return windowed_logs
     
-    async def consolidate_predictions(predictions, num_logs, window_size):
+    async def consolidate_predictions(self, predictions, num_logs, window_size):
 
         log_votes = [Counter() for _ in range(num_logs)]
 
