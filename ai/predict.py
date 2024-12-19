@@ -51,10 +51,13 @@ class BERTPredictor:
                 log_index = i + j
                 if log_index < num_logs:
                     log_votes[log_index][label] += 1
-                else:
-                    final_labels.append("No Attack")
-
-        final_labels = [votes.most_common(1)[0][0] for votes in log_votes]
+        
+        final_labels = []
+        for votes in log_votes:
+            if votes:
+                final_labels.append(votes.most_common(1)[0][0])
+            else:
+                final_labels.append("No Attack") 
         return final_labels
 
     async def predict(self,windowed_logs):
