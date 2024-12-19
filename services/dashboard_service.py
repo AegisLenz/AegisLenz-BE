@@ -241,11 +241,14 @@ class DashboardService:
                 raise HTTPException(status_code=500, detail=f"Error generating least privilege policy for user_id {user_id}: {str(e)}")
 
             # 단일 점수 계산
+            if total_log_cnt == 0 or iam_cnt == 0:
+                raise ValueError("Division by zero detected in total_log_cnt or iam_cnt.")
+            
             attack_log_score = (1 - total_attack_log_cnt / total_log_cnt) * 100
             problem_iam_score = (1 - problem_iam_cnt / iam_cnt) * 100
 
             # 평균 점수
-            score = (attack_log_score + problem_iam_score) / 2
+            score = (attack_log_score * 0.3) + (problem_iam_score * 0.7)
             
             logger.info(f"{total_attack_log_cnt}, {total_log_cnt}")
             logger.info(f"{problem_iam_cnt}, {iam_cnt}")
