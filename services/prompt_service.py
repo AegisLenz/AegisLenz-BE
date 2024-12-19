@@ -231,6 +231,7 @@ class PromptService:
                     data = data.replace('\"', '')
                 elif isinstance(data, list):
                     data = [json.dumps(item, ensure_ascii=False) if isinstance(item, dict) else item for item in data]
+                    # data = [json.loads(item) if isinstance(item, dict) else item for item in data]
 
             response = PromptChatStreamResponseSchema(status=status, type=type, data=data)
             return json.dumps(response.dict(), ensure_ascii=False) + "\n"
@@ -357,11 +358,14 @@ class PromptService:
                 
             # 응답 페르소나
             if isES:
-                yield self._create_stream_response(type="ESQuery", data=query)
+                yield self._create_stream_response(type="ESQuery", data=json.loads(query))
                 yield self._create_stream_response(type="ESResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
             if isDB:
-                yield self._create_stream_response(type="DBQuery", data=query)
+                logger.info(type(json.loads(query)))
+                logger.info(type(query_result))
+                yield self._create_stream_response(type="DBQuery", data=json.loads(query))
                 yield self._create_stream_response(type="DBResult", data=json.dumps(query_result, default=json_util.default, ensure_ascii=False, indent=4))
+                
             
             if needed_detail:
                 summary_prompt = self.init_prompts["Summary"].copy()
