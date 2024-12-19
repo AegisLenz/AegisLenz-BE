@@ -30,7 +30,7 @@ class Bookmark(Model):
 
 
 class Dashboard(Model):
-    daily_insight: str
+    daily_insight: list
     user_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

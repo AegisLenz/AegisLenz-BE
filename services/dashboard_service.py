@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException
 from dotenv import load_dotenv
 from datetime import date, timedelta, datetime, timezone
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from services.policy_service import PolicyService
 from services.gpt_service import GPTService
 from services.dashboard.daily_insight import process_logs_by_token_limit
@@ -426,47 +427,132 @@ class DashboardService:
             logger.error(f"Error processing GPT response for user_id {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Error processing report summaries.")
 
-    def _fetch_all_logs_with_scroll(self) -> list:
+    async def _summarize_logs(self, log_chunks, timestamps):
+        """
+        각 로그 청크를 요약하고 요약 결과를 반환합니다.
+        """
+        response_list = []
+
+        for index, (chunk, timestamp) in enumerate(zip(log_chunks, timestamps), start=1):
+            log_string = "\n".join(json.dumps(log) for log in chunk)
+            daily_insight_content = self.init_prompts["DailyInsight"][0]["content"].format(
+                logs=log_string,
+                timestamp=timestamp
+            )
+            daily_insight_prompt = [{"role": "system", "content": daily_insight_content}]
+
+            response = await self.gpt_service.get_response(daily_insight_prompt, json_format=False)
+            if response:
+                title = f"**{timestamp}에 발생한 공격의 전후로그 분석**"
+                response_with_title = f"{title}\n\n{response}"
+
+                response_list.append(response_with_title)
+                logger.info(f"Chunk {index} 처리 완료. 응답 추가됨.")
+            else:
+                logger.warning(f"Chunk {index} 처리 중 응답이 비어 있습니다.")
+
+        return response_list
+
+    def _is_duplicate_log(self, log, seen_logs):
+        """필드 비교하여 중복 제외"""
+        log_key = (
+            log.get("@timestamp"),
+            log.get("eventName"),
+            log.get("eventID")
+        )
+        if log_key in seen_logs:
+            return True
+        return False
+
+    # 공격 10초 전,후 로그 가져오기
+    def _fetch_logs_near_attack(self, log):
+        timestamp = log.get("@timestamp")
+        if not timestamp:
+            logger.warning("공격 로그에 타임스탬프가 없습니다. 로그를 건너뜁니다.")
+            return None, []
+
+        # 타임스탬프를 UTC 시간으로 변환
+        log_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        start_time = (log_time - timedelta(seconds=10)).isoformat()
+        end_time = (log_time + timedelta(seconds=10)).isoformat()
+        index_name = f"cloudtrail-logs-{log_time.strftime('%Y.%m.%d')}"
+
+        # Elasticsearch 쿼리 생성
+        query = {
+            "query": {
+                "range": {
+                    "@timestamp": {
+                        "gte": start_time,
+                        "lte": end_time,
+                        "format": "strict_date_optional_time"
+                    }
+                }
+            },
+            "size": 1000
+        }
+
+        # Elasticsearch 쿼리 실행
+        try:
+            response = self.es.search(index=index_name, body=query)
+            related_logs = [hit["_source"] for hit in response["hits"]["hits"]]
+            logger.info(f"{timestamp} 기준으로 가져온 관련 로그 개수: {len(related_logs)}")
+            return timestamp, related_logs
+        except es_exceptions.ConnectionError as e:
+            logger.error(f"Elasticsearch 연결 오류: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except es_exceptions.RequestError as e:
+            logger.error(f"Elasticsearch 요청 오류: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+        except Exception as e:
+            logger.error(f"Elasticsearch에서 로그를 가져오는 중 오류 발생: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
+
+    def _fetch_attack_logs(self) -> list:
         # 오늘 날짜 및 1일 전 날짜 계산 (날짜 기준)
-        today = date.today()
-        target_date = today - timedelta(days=1)  # 어제 날짜
+        # today = date.today()
+        # target_date = today - timedelta(days=1)  # 어제 날짜
 
         # 시작 및 끝 시간 계산
-        start_datetime = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-        end_datetime = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        # start_datetime = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        # end_datetime = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc).date()
+        past_day = now - timedelta(days=17)
+        past2_day = now - timedelta(days=16)
 
         # Scroll API 설정
         query = {
             "query": {
                 "range": {
                     "@timestamp": {
-                        "gte": start_datetime.isoformat(),
-                        "lte": end_datetime.isoformat(),
+                        "gte": past_day.isoformat(),
+                        "lte": past2_day.isoformat(),
                         "format": "strict_date_optional_time"
                     }
                 }
             },
             "sort": [{"@timestamp": {"order": "asc"}}],
-            "size": 1000  # 한 번에 가져올 문서 수
+            "size": 1000
         }
 
         try:
-            logger.info("Elasticsearch Scroll API를 사용해 로그를 가져옵니다...")
+            logger.info("cloudtrail-attack-logs 인덱스에서 로그를 가져옵니다...")
+            logger.info(f"쿼리 조건 확인: {json.dumps(query, indent=2)}")
 
-            # Scroll 시작
-            response = self.es.search(index="cloudtrail-logs-*", body=query, scroll="1m")
+            response = self.es.search(index="cloudtrail-attack-logs", body=query, scroll="1m")
             scroll_id = response["_scroll_id"]
             logs = [hit["_source"] for hit in response["hits"]["hits"]]
+            logger.info(f"첫 번째 검색 결과 개수: {len(response['hits']['hits'])}")
 
             while True:
-                # Scroll 계속해서 가져오기
                 scroll_response = self.es.scroll(scroll_id=scroll_id, scroll="1m")
                 hits = scroll_response["hits"]["hits"]
                 if not hits:
                     break
-
                 logs.extend([hit["_source"] for hit in hits])
-            
+                logger.info(f"현재까지 가져온 로그 개수: {len(logs)}")
+
+            logger.info(f"총 {len(logs)}개의 공격 로그를 가져왔습니다.")
             return logs
 
         except es_exceptions.ConnectionError as e:
@@ -478,44 +564,71 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Elasticsearch에서 로그를 가져오는 중 오류 발생: {str(e)}")
             raise HTTPException(status_code=404, detail=f"Index '{self.es_index}' not found.")
-        
-    async def _create_daily_insight(self) -> str:
+
+    async def _create_daily_insight(self) -> list:
         try:
-            # 1. 로그 가져오기
-            logs = self._fetch_all_logs_with_scroll()
-            if not logs:
+            # 1. 공격 로그 가져오기
+            attack_logs = self._fetch_attack_logs()
+            if not attack_logs:
                 logger.error("가져온 로그가 없습니다. 작업을 종료합니다.")
-            logger.info(f"가져온 전체 JSON 로그 개수: {len(logs)}")
-            
-            # 2. 로그를 토큰 한계에 따라 청크로 나누기
-            log_chunks = process_logs_by_token_limit(logs, token_limit=120000)
-            logger.info(f"토큰 한계를 기준으로 총 {len(log_chunks)}개의 청크로 나누어졌습니다.")
+            logger.info(f"가져온 전체 JSON 로그 개수: {len(attack_logs)}")
 
-            # 3. 청크별 GPT 요청 처리 (동기적으로 처리)
-            response_list = []
-            for index, chunk in enumerate(log_chunks, start=1):
-                log_string = "\n".join(json.dumps(log) for log in chunk)
-                daily_insight_content = self.init_prompts["DailyInsight"][0]["content"].format(logs=log_string)
-                daily_insight_prompt = [{"role": "system", "content": daily_insight_content}]
+            seen_logs = set()
+            deleted_logs = []
+
+            # 공격 로그를 중복 방지를 위해 seen_logs에 추가
+            for log in attack_logs:
+                log_key = (
+                    log.get("@timestamp"),
+                    log.get("eventName"),
+                    log.get("eventID")
+                )
+                seen_logs.add(log_key)
+
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_log = {executor.submit(self._fetch_logs_near_attack, log): log for log in attack_logs}
+                chunk_timestamps = []  # 청크별 타임스탬프 저장
+                final_summaries = []  # 최종 요약 리스트
+
+                for attack_log, future in zip(attack_logs, as_completed(future_to_log)):
+                    query_timestamp, related_logs = future.result()
+
+                    if not query_timestamp:
+                        logger.info("Skipping log: Missing query timestamp.")
+                        continue
+                    if not related_logs:
+                        logger.info("Skipping log: Missing related logs.")
+                        continue
+                    logger.info(f"가져온 관련 로그 개수 : {len(related_logs)}")
+
+                    unique_logs = []
+                    for log in related_logs:
+                        if self._is_duplicate_log(log, seen_logs):
+                            deleted_logs.append(log)
+                        else:
+                            unique_logs.append(log)
+                    logger.info(f"삭제된 로그 개수: {len(deleted_logs)}")
+                    logger.info(f"가져온 관련 로그 개수 (중복 및 공격 로그 제외 후): {len(unique_logs)}")
+
+                    # 2. 로그를 토큰 한계에 따라 청크로 나누기
+                    log_chunks = process_logs_by_token_limit(unique_logs)
+                    chunk_timestamps = [query_timestamp] * len(log_chunks)
+
+                    # 3. 청크별 GPT 요청 처리
+                    chunk_summaries = await self._summarize_logs(log_chunks, chunk_timestamps) or []  # None이면 빈 리스트로 대체
+
+                    # 4. 응답 리스트를 통합하여 최종 GPT 요청
+                    if chunk_summaries:
+                        combined_chunk_summary = "\n".join(chunk_summaries)
+                        final_content = combined_chunk_summary + f"\n데이터의 관계와 흐름을 파악해서 핵심내용만 간단하게 요약하세요. 결론은 반드시 생략하고 중복되는 내용도 생략합니다. 또한, 반드시 제목은 **{query_timestamp}에 발생한 공격의 전후로그 분석**이라고 해야합니다. 응답은 반드시 markdown 형식을 반환합니다."
+                        final_prompt = [{"role": "user", "content": final_content}]
+
+                        final_summary = await self.gpt_service.get_response(final_prompt, json_format=False)
+                        logger.info(f"{query_timestamp}에 대한 최종 요약 완료.")
+                        final_summaries.append(final_summary)
                 
-                response = await self.gpt_service.get_response(daily_insight_prompt, json_format=False)
-                if response:
-                    response_list.append(response)
-                    logger.info(f"Chunk {index} 처리 완료. 응답 추가됨.")
-                else:
-                    logger.warning(f"Chunk {index} 처리 중 응답이 비어 있습니다.")
+                return final_summaries
 
-            if not response_list:
-                logger.error("No response list provided to process GPT response.")
-                raise HTTPException(status_code=400, detail="No valid responses received to generate daily insight.")
-
-            # 4. 응답 리스트를 통합하여 최종 GPT 요청
-            combined_content = "\n".join(response_list) + "\n데이터의 관계와 흐름을 파악해서 요약하세요."
-            combined_prompt = [{"role": "user", "content": combined_content}]
-            
-            final_response = await self.gpt_service.get_response(combined_prompt, json_format=False)
-            return final_response
-            
         except Exception as e:
             logger.error(f"Error creating daily insight: {e}")
             raise HTTPException(status_code=500, detail="Error creating daily insight.")
@@ -524,6 +637,7 @@ class DashboardService:
         try:
             find_dashboard = await self.dashboard_repository.find_dashboard(user_id)
             if find_dashboard and find_dashboard.created_at.date() == date.today():
+                logger.info(find_dashboard)
                 return DailyInsightResponseSchema(daily_insight=find_dashboard.daily_insight)
 
             daily_insight = await self._create_daily_insight()

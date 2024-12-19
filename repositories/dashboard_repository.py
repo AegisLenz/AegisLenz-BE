@@ -24,7 +24,7 @@ class DashboardRepository:
             logger.error(f"Error retrieving dashboard for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve dashbiard for user ID '{user_id}': {str(e)}")
 
-    async def save_dashboard(self, daily_insight: str, user_id: str) -> None:
+    async def save_dashboard(self, daily_insight: list, user_id: str) -> None:
         try:
             dashboard = Dashboard(
                 daily_insight=daily_insight,

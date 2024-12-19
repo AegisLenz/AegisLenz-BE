@@ -83,4 +83,4 @@ class ReportCheckResponseSchema(BaseModel):
 
 
 class DailyInsightResponseSchema(BaseModel):
-    daily_insight: str
+    daily_insight: list[str]
