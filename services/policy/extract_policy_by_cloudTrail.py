@@ -229,5 +229,5 @@ def extract_policy_by_cloudTrail():
         if user_name not in policies:
             policies[user_name] = []
         policies[user_name].append(final_policy)
-        print(policies)
+
     return policies
