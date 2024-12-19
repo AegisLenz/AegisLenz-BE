@@ -38,7 +38,7 @@ class BERTPredictor:
         windowed_logs = []
         for i in range(len(logs) - window_size + 1):
             window_logs = logs[i:i + window_size]
-            windowed_logs.append(" ".join(window_logs))
+            windowed_logs.append(window_logs)
 
         return windowed_logs
     
@@ -51,6 +51,8 @@ class BERTPredictor:
                 log_index = i + j
                 if log_index < num_logs:
                     log_votes[log_index][label] += 1
+                else:
+                    final_labels.append("No Attack")
 
         final_labels = [votes.most_common(1)[0][0] for votes in log_votes]
         return final_labels
