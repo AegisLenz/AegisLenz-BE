@@ -37,3 +37,9 @@ class UserService:
 
     async def delete_bookmark(self, bookmark_id: ObjectId):
         return await self.user_repository.delete_bookmark(bookmark_id)
+
+    async def login(self, user_name: str, user_password: str):
+        return await self.user_repository.login(user_name, user_password)
+    
+    async def create_account(self, user_request: dict):
+        return await self.user_repository.create_account(user_request)
