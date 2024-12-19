@@ -35,7 +35,6 @@ class UserRepository:
             logger.error(f"Error retrieving assets for user ID '{user_id}', Asset Type: '{asset_type}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"An unexpected error occurred while retrieving assets for user ID '{user_id}'. Please try again later.")
     
-
     async def get_user_policies(self, user_id: str):
         try:
             user_asset = await self.mongodb_engine.find_one(
@@ -55,7 +54,6 @@ class UserRepository:
             logger.error(f"Error retrieving policies for user ID '{user_id}', Error: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to retrieve user policies for user ID '{user_id}': {str(e)}")
 
-
     async def create_bookmark(self, user_id: str, question: str):
         try:
             user = await self.mongodb_engine.find_one(
@@ -63,13 +61,8 @@ class UserRepository:
                 User.id == user_id
             )
             if not user:
-                user = User(
-                    id=user_id,
-                    email="jyjyjy7418@gmail.com",
-                    created_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None),
-                    updated_at=datetime.now(timezone(timedelta(hours=9))).replace(tzinfo=None)
-                )
-                await self.mongodb_engine.save(user)
+                logger.error(f"No user found for user ID '{user_id}'.")
+                raise HTTPException(status_code=404, detail=f"No user found for user ID '{user_id}'.")
             
             bookmark = Bookmark(
                 question=question,
