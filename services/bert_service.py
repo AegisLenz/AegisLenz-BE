@@ -68,8 +68,8 @@ class BERTService:
                 logs=attack_info["logs"]
             )
             attack_graph_prompt = [{"role": "system", "content": attack_graph_content}]
-            attack_graph = await self.gpt_service.get_response(attack_graph_prompt, json_format=False)
-            return attack_graph
+            response = await self.gpt_service.get_response(attack_graph_prompt)
+            return response
         except Exception as e:
             logger.error(f"Error while creating attack graph: {e}")
             raise HTTPException(status_code=500, detail="Failed to generate attack graph.")
