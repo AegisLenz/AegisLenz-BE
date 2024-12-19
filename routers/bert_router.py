@@ -96,12 +96,13 @@ async def sse_events(
 
                         if len(buffer) >= BUFFER_SIZE:
                             logger.info(f"Buffer size reached: {BUFFER_SIZE}")
-                            prediction = await bert_service.predict_attack(buffer)
-                            logger.info(f"Prediction: {prediction}")
-                            for predict in prediction:
-                                if predict != "No Attack":
+                            predictions = await bert_service.predict_attack(buffer)
+                            logger.info(f"Predictions: {predictions}")
+
+                            for prediction in predictions:
+                                if prediction != "No Attack":
                                     attack_data = await process_and_store_attack(
-                                        es_service, redis_driver, source_ip, log, predict
+                                        es_service, redis_driver, source_ip, log, prediction
                                     )
                                     
                                     if attack_data:
@@ -161,11 +162,12 @@ async def process_log(source_ip, log, redis_driver, bert_service, es_service):
         if len(buffer) >= BUFFER_SIZE:
             logger.info(f"Buffer size reached for {source_ip}: {len(buffer)} logs")
 
-            prediction = await bert_service.predict_attack(buffer)
-            logger.info(f"Prediction for {source_ip}: {prediction}")
+            predictions = await bert_service.predict_attack(buffer)
+            logger.info(f"Predictions for {source_ip}: {predictions}")
 
-            if prediction != "No Attack":
-                return await process_and_store_attack(es_service, redis_driver, source_ip, log, prediction)
+            for prediction in predictions:
+                if prediction != "No Attack":
+                    return await process_and_store_attack(es_service, redis_driver, source_ip, log, prediction)
 
         return None
     except Exception as e:
@@ -186,14 +188,17 @@ async def process_and_store_attack(es_service, redis_driver, source_ip, log, pre
             "prompt_session_id": log.get("sharedEventId") or log.get("eventId") or str(uuid4())
         }
 
+        combined_data = {**log, **attack_data}
+
         log_id = f"{source_ip}_{log.get('@timestamp', datetime.now(timezone.utc).isoformat())}_{uuid4()}"
         await es_service.save_document(
             index=ES_ATTACK_INDEX,
             doc_id=log_id,
-            body=attack_data
+            body=combined_data
         )
+
         await redis_driver.mark_as_processed(source_ip)
-        return attack_data
+        return combined_data
     except Exception as e:
         logger.error(f"Failed to process and store attack: {e}")
         return None
