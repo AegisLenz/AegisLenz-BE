@@ -4,9 +4,8 @@ from services.policy.comparePolicy import clustered_compare_policy
 from services.policy.filter_original_policy import filter_original_policy
 from repositories.user_repository import UserRepository
 from common.logging import setup_logger
-from services.policy.common_utils import convert_list_to_dict
-logger = setup_logger()
 
+logger = setup_logger()
 
 class PolicyService:
     def __init__(self, user_repository: UserRepository = Depends()):
@@ -36,11 +35,6 @@ class PolicyService:
             if clustered_policy_by_cloudtrail is None:
                 logger.error("clustered_policy_by_cloudtrail is None. It must be a dictionary.")
                 raise ValueError("clustered_policy_by_cloudtrail is None. It must be a dictionary.")
-            
-            # 리스트일 경우 딕셔너리로 변환
-            if isinstance(clustered_policy_by_cloudtrail, list):
-                logger.debug(f"Converting list to dictionary for clustered_policy_by_cloudtrail: {clustered_policy_by_cloudtrail}")
-                clustered_policy_by_cloudtrail = convert_list_to_dict(clustered_policy_by_cloudtrail)
             
             # 타입 체크
             if not isinstance(clustered_policy_by_cloudtrail, dict):

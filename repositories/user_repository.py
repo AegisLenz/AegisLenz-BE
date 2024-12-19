@@ -8,7 +8,6 @@ from common.logging import setup_logger
 
 logger = setup_logger()
 
-
 class UserRepository:
     def __init__(self):
         self.mongodb_engine = mongodb.engine
