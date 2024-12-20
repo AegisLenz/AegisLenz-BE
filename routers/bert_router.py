@@ -41,7 +41,7 @@ def load_json(file_path):
 
 tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 
-BUFFER_SIZE = 10
+BUFFER_SIZE = 5
 ES_INDEX = os.getenv("ES_INDEX")
 ES_ATTACK_INDEX = os.getenv("ES_ATTACK_INDEX")
 
