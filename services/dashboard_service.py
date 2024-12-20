@@ -249,12 +249,6 @@ class DashboardService:
 
             # 평균 점수
             score = (attack_log_score * 0.3) + (problem_iam_score * 0.7)
-            
-            logger.info(f"{total_attack_log_cnt}, {total_log_cnt}")
-            logger.info(f"{problem_iam_cnt}, {iam_cnt}")
-            logger.info(attack_log_score)
-            logger.info(problem_iam_score)
-            logger.info(score)
             return ScoreResponseSchema(score=score)
         except Exception as e:
             logger.error(f"Error calculating score for user_id {user_id}: {e}")
