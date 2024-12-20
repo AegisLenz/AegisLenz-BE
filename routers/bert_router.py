@@ -68,11 +68,16 @@ async def process_log(
     try:
         await redis_driver.set_log_queue(source_ip, log)
         buffer = await redis_driver.get_log_queue(source_ip)
+
+        if buffer is None:
+            buffer = []
+        
         logger.info(f"Processing log for {source_ip}. Buffer size: {len(buffer)}")
         if len(buffer) >= BUFFER_SIZE:
             logger.info(f"Buffer size reached for {source_ip}: {len(buffer)}")
             predictions = await bert_service.predict_attack(buffer)
             logger.info(f"Predictions for {source_ip}: {predictions}")
+
             results = []
             for prediction in predictions:
                 if prediction != "No Attack":
@@ -82,8 +87,10 @@ async def process_log(
                     if attack_data:
                         results.append(attack_data)
             return results
+
     except Exception as e:
         logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
+        
     return []
 
 @router.get(
