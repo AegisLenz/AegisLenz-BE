@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class AttackDetection(Model):
-    attack_logs: Union[list, str]
+    attack_logs: Union[list, str, dict]
     attack_type: list
     attack_time: datetime
     least_privilege_policy: dict[str, dict[str, list[object]]] = Field(default_factory=dict)
