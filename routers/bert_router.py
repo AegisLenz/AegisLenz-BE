@@ -213,3 +213,4 @@ async def handle_post_detection(bert_service: BERTService, user_id: str, attack_
         await bert_service.process_after_detection(user_id, attack_info)
         logger.info(f"Post-detection processing completed for user_id: {user_id}")
     except Exception as e:
+        logger.error(f"Error in post-detection processing for user_id {user_id}: {e}", exc_info=True)
