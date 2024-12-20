@@ -28,6 +28,9 @@ def get_es_service(request: Request) -> ElasticsearchService:
 def get_redis_driver(request: Request) -> RedisDriver:
     return request.app.state.redis_driver
 
+def get_bert_service(request: Request) -> BERTService:
+    return request.app.state.bert_service
+
 def load_json(file_path):
     try:
         with open(file_path, "r", encoding="utf-8") as file:
@@ -38,7 +41,7 @@ def load_json(file_path):
 
 tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 
-BUFFER_SIZE = int(os.getenv("BUFFER_SIZE", 1))
+BUFFER_SIZE = 10
 ES_INDEX = os.getenv("ES_INDEX")
 ES_ATTACK_INDEX = os.getenv("ES_ATTACK_INDEX")
 
@@ -74,7 +77,7 @@ async def process_log(
             for prediction in predictions:
                 if prediction != "No Attack":
                     attack_data = await process_and_store_attack(
-                        es_service, redis_driver, source_ip, log, prediction
+                        es_service, redis_driver, bert_service, source_ip, log, prediction
                     )
                     if attack_data:
                         results.append(attack_data)
@@ -82,6 +85,7 @@ async def process_log(
     except Exception as e:
         logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
     return []
+
 @router.get(
     "/events",
     response_class=StreamingResponse,
@@ -159,18 +163,26 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_ke
         logger.error(f"Failed to fetch logs: {e}")
         return [], None
 
-async def process_and_store_attack(es_service, redis_driver, source_ip, log, prediction):
+async def process_and_store_attack(es_service, redis_driver, bert_service, source_ip, log, prediction):
     try:
         logger.info(f"Processing log: {log}")
         normalized_prediction = normalize_key(prediction)
         tactic = tactics_mapping.get(normalized_prediction, "Unknown Tactic")
         logger.info(f"Tactic mapped: {tactic}")
 
+        attack_info = {
+            "attack_type": [normalized_prediction, tactic],
+            "attack_time": datetime.now(timezone.utc).isoformat(),
+            "logs": log
+        }
+
+        prompt_session_id = await bert_service.process_after_detection(source_ip, attack_info)
+
         attack_data = {
             "mitreAttackTechnique": normalized_prediction,
             "mitreAttackTactic": tactic,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "prompt_session_id": log.get("sharedEventId") or log.get("eventId") or str(uuid4())
+            "timestamp": attack_info["attack_time"],
+            "prompt_session_id": str(prompt_session_id)
         }
 
         combined_data = {**log, **attack_data}
