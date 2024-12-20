@@ -106,5 +106,3 @@ class RedisDriver:
 
         async def _check_operation():
             return await self.redis_client.exists(key)
-
-        return await self._execute_with_retry(_check_operation)
