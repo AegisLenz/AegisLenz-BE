@@ -79,15 +79,22 @@ async def process_log(
             logger.info(f"Predictions for {source_ip}: {predictions}")
 
             results = []
-            for prediction in predictions:
+            for buf, prediction in zip(buffer, predictions):
                 if prediction != "No Attack":
                     attack_data = await process_and_store_attack(
-                        es_service, redis_driver, bert_service, source_ip, log, prediction
+                        es_service, redis_driver, bert_service, source_ip, buf, prediction
                     )
                     if attack_data:
                         results.append(attack_data)
+                        user_id = buf.get("userId", "default_user")
+                        attack_info = {
+                            "attack_time": attack_data["timestamp"],
+                            "attack_type": attack_data["mitreAttackTechnique"],
+                            "logs": buffer,
+                        }
+                        asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
             return results
-
+            
     except Exception as e:
         logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
         
@@ -135,6 +142,7 @@ async def sse_events(
                             logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
                             yield f"data: {json.dumps(attack_data)}\n\n"
                             logger.info(f"SSE sent: {json.dumps(attack_data)}")
+                            
                 if backfilling and not logs:
                     logger.info("Backfill complete. Switching to real-time streaming.")
                     backfilling = False
