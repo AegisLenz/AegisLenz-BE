@@ -38,7 +38,7 @@ def load_json(file_path):
 
 tactics_mapping = load_json(TACTICS_MAPPING_FILE)
 
-BUFFER_SIZE = int(os.getenv("BUFFER_SIZE", 1))
+BUFFER_SIZE = 10
 ES_INDEX = os.getenv("ES_INDEX")
 ES_ATTACK_INDEX = os.getenv("ES_ATTACK_INDEX")
 
@@ -54,37 +54,6 @@ def normalize_key(key: str) -> str:
     description = re.sub(r"([a-z])([A-Z])", r"\1 \2", match.group(2)).title()
 
     return f"{technique_id} - {description}"
-
-async def process_log(
-    source_ip: str,
-    log: dict,
-    redis_driver: RedisDriver,
-    bert_service: BERTService,
-    es_service: ElasticsearchService,
-) -> list:
-
-    try:
-        await redis_driver.set_log_queue(source_ip, log)
-        buffer = await redis_driver.get_log_queue(source_ip)
-
-        logger.info(f"Processing log for {source_ip}. Buffer size: {len(buffer)}")
-        if len(buffer) >= BUFFER_SIZE:
-            logger.info(f"Buffer size reached for {source_ip}: {len(buffer)}")
-            predictions = await bert_service.predict_attack(buffer)
-            logger.info(f"Predictions for {source_ip}: {predictions}")
-
-            results = []
-            for prediction in predictions:
-                if prediction != "No Attack":
-                    attack_data = await process_and_store_attack(
-                        es_service, redis_driver, source_ip, log, prediction
-                    )
-                    if attack_data:
-                        results.append(attack_data)
-            return results
-    except Exception as e:
-        logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
-    return []
 
 @router.get(
     "/events",
@@ -116,21 +85,62 @@ async def sse_events(
 
                 if logs:
                     last_timestamp = logs[-1].get("@timestamp", datetime.now(timezone.utc).isoformat())
+                    prediction = await bert_service.predict_attack(logs)
+                    logger.info(f"Prediction: {prediction}")
 
+                    for log, predict in zip(logs, prediction):
+                        source_ip = log.get("sourceIPAddress", "unknown") 
+                        if source_ip == "unknown" or await redis_driver.is_processed(source_ip):
+                            continue 
+                        
+                        if predict != "No Attack":
+                            attack_data = await process_and_store_attack(
+                                es_service, redis_driver, source_ip, log, predict
+                            )                  
+                            if attack_data:
+                                user_id = log.get("userId", "default_user")
+                                attack_info = {
+                                    "attack_time": attack_data["timestamp"],
+                                    "attack_type": attack_data["mitreAttackTechnique"],
+                                    "logs": log,
+                                }
+                                asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
+
+                                logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
+                                yield f"data: {json.dumps(attack_data)}\n\n"
+                                logger.info(f"SSE sent: {json.dumps(attack_data)}")
+
+                    '''
                     for log in logs:
                         source_ip = log.get("sourceIPAddress", "unknown")
                         if source_ip == "unknown" or await redis_driver.is_processed(source_ip):
                             continue
 
-                        attack_results = await process_log(
-                            source_ip, log, redis_driver, bert_service, es_service
-                        )
+                        await redis_driver.set_log_queue(source_ip, log)
+                        buffer = await redis_driver.get_log_queue(source_ip)
 
-                        for attack_data in attack_results:
-                            logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
-                            yield f"data: {json.dumps(attack_data)}\n\n"
-                            logger.info(f"SSE sent: {json.dumps(attack_data)}")
+                        if len(buffer) >= BUFFER_SIZE:
+                            logger.info(f"Buffer size reached: {BUFFER_SIZE}")
+                            prediction = await bert_service.predict_attack(buffer)
+                            logger.info(f"Prediction: {prediction}")
+                            for predict in prediction:
+                                if predict != "No Attack":
+                                    attack_data = await process_and_store_attack(
+                                        es_service, redis_driver, source_ip, log, predict
+                                    )                                 
+                                    if attack_data:
+                                        user_id = log.get("userId", "default_user")
+                                        attack_info = {
+                                            "attack_time": attack_data["timestamp"],
+                                            "attack_type": attack_data["mitreAttackTechnique"],
+                                            "logs": buffer,
+                                        }
+                                        asyncio.create_task(handle_post_detection(bert_service, user_id, attack_info))
 
+                                        logger.info(f"Prepared SSE data: {json.dumps(attack_data)}")
+                                        yield f"data: {json.dumps(attack_data)}\n\n"
+                                        logger.info(f"SSE sent: {json.dumps(attack_data)}")
+'''
                 if backfilling and not logs:
                     logger.info("Backfill complete. Switching to real-time streaming.")
                     backfilling = False
@@ -166,6 +176,26 @@ async def fetch_logs_from_elasticsearch(es_service, last_timestamp, last_sort_ke
         logger.error(f"Failed to fetch logs: {e}")
         return [], None
 
+async def process_log(source_ip, log, redis_driver, bert_service, es_service):
+    try:
+        await redis_driver.set_log_queue(source_ip, log)
+
+        buffer = await redis_driver.get_log_queue(source_ip)
+
+        if len(buffer) >= BUFFER_SIZE:
+            logger.info(f"Buffer size reached for {source_ip}: {len(buffer)} logs")
+
+            prediction = await bert_service.predict_attack(buffer)
+            logger.info(f"Prediction for {source_ip}: {prediction}")
+
+            if prediction != "No Attack":
+                return await process_and_store_attack(es_service, redis_driver, source_ip, log, prediction)
+
+        return None
+    except Exception as e:
+        logger.error(f"Error processing log for {source_ip}: {e}", exc_info=True)
+        return None
+
 async def process_and_store_attack(es_service, redis_driver, source_ip, log, prediction):
     try:
         logger.info(f"Processing log: {log}")
@@ -180,17 +210,14 @@ async def process_and_store_attack(es_service, redis_driver, source_ip, log, pre
             "prompt_session_id": log.get("sharedEventId") or log.get("eventId") or str(uuid4())
         }
 
-        combined_data = {**log, **attack_data}
-
         log_id = f"{source_ip}_{log.get('@timestamp', datetime.now(timezone.utc).isoformat())}_{uuid4()}"
         await es_service.save_document(
             index=ES_ATTACK_INDEX,
             doc_id=log_id,
-            body=combined_data
+            body=attack_data
         )
-
         await redis_driver.mark_as_processed(source_ip)
-        return combined_data
+        return attack_data
     except Exception as e:
         logger.error(f"Failed to process and store attack: {e}")
         return None
