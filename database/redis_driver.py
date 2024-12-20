@@ -68,7 +68,7 @@ class RedisDriver:
                     await asyncio.sleep(RETRY_DELAY * (2 ** attempt))
         raise RedisOperationError(f"Redis operation failed after {MAX_RETRY_ATTEMPTS} attempts.")
 
-    async def set_log_queue(self, source_ip: str, log_data: dict, max_logs: int = 10, ttl: int = 3600) -> None:
+    async def set_log_queue(self, source_ip: str, log_data: dict, max_logs: int = 5, ttl: int = 3600) -> None:
         """Redis 로그 큐에 로그 추가."""
         key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
 
@@ -76,9 +76,8 @@ class RedisDriver:
             await self.redis_client.rpush(key, json.dumps(log_data))
             if not await self.redis_client.ttl(key):
                 await self.redis_client.expire(key, ttl)
-            if await self.redis_client.llen(key) >= max_logs:
-                for i in range(10):
-                    await self.redis_client.lpop(key)
+            if await self.redis_client.llen(key) > max_logs:
+                await self.redis_client.lpop(key)
 
         await self._execute_with_retry(_set_operation)
 
@@ -107,5 +106,3 @@ class RedisDriver:
 
         async def _check_operation():
             return await self.redis_client.exists(key)
-
-        return await self._execute_with_retry(_check_operation)
