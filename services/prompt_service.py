@@ -227,7 +227,7 @@ class PromptService:
         try:
             if data is not None:
                 if isinstance(data, dict):
-                    data = json.dumps(data, ensure_ascii=False).replace('\"', '')
+                    pass
                 elif isinstance(data, str):
                     data = data.replace('\"', '')
                 elif isinstance(data, list):

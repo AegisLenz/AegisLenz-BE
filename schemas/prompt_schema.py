@@ -18,7 +18,7 @@ class PromptChatRequestSchema(BaseModel):
 class PromptChatStreamResponseSchema(BaseModel):
     status: str  # "processing" 또는 "complete" 상태를 나타냄
     type: Optional[str] = None
-    data: Optional[Union[str, list]] = None  # ChatGPT로부터 받은 응답 데이터
+    data: Optional[Union[str, list, dict]] = None  # ChatGPT로부터 받은 응답 데이터
 
     class Config:
         json_schema_extra = {
