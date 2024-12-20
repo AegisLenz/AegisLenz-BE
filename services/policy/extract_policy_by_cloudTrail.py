@@ -16,6 +16,8 @@ logger = setup_logger()
 iam_policy_dir = os.getenv("IAM_POLICY_DIR_PATH")
 base_directory = os.path.join(iam_policy_dir, "AWSDatabase")
 real_directory = os.path.join(iam_policy_dir, "AWSDatabase","RealService")
+logs_directory = os.path.join(iam_policy_dir, "src","sample_data")
+
 
 def clustering_by_username(logs):
     records = logs.get("Records",[])
@@ -181,7 +183,11 @@ def making_policy(log_entry):
 
 
 def extract_policy_by_cloudTrail():
-    logs = fetch_all_logs_with_scroll()
+    #logs = fetch_all_logs_with_scroll()
+    
+    with open(os.path.join(logs_directory, "logs.json"), 'r') as file:
+        logs = json.load(file)
+        
     #가상 서비스를 걸러내는 로직
     clustered_logs = cluster_logs_by_event_source_prefix(logs)
     filtered_logs = filter_logs_by_allow_actions(clustered_logs, real_directory)
