@@ -68,7 +68,7 @@ class RedisDriver:
                     await asyncio.sleep(RETRY_DELAY * (2 ** attempt))
         raise RedisOperationError(f"Redis operation failed after {MAX_RETRY_ATTEMPTS} attempts.")
 
-    async def set_log_queue(self, source_ip: str, log_data: dict, max_logs: int = 10, ttl: int = 3600) -> None:
+    async def set_log_queue(self, source_ip: str, log_data: dict, ttl: int = 2400) -> None:
         """Redis 로그 큐에 로그 추가."""
         key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
 
@@ -76,20 +76,21 @@ class RedisDriver:
             await self.redis_client.rpush(key, json.dumps(log_data))
             if not await self.redis_client.ttl(key):
                 await self.redis_client.expire(key, ttl)
-            if await self.redis_client.llen(key) >= max_logs:
-
-                for i in range(10):
-                    await self.redis_client.lpop(key)
 
         await self._execute_with_retry(_set_operation)
 
-    async def get_log_queue(self, source_ip: str) -> List[Dict]:
+    async def get_log_queue(self, source_ip: str, max_logs: int = 10, ttl: int = 2400) -> List[Dict]:
         """Redis 로그 큐에서 로그 가져오기."""
         key = f"{REDIS_KEY_PREFIX['LOGS']}:{source_ip}"
 
         async def _get_operation():
-            logs = await self.redis_client.lrange(key, 0, -1)
-            return [json.loads(log) for log in logs]
+            logs = await self.redis_client.lrange(key, 0, 10)
+            result = [json.loads(log) for log in logs]
+
+            if len(result) >= 5:
+                for i in range(len(result) - 5):
+                    await self.redis_client.lpop(key)
+                return result
 
         return await self._execute_with_retry(_get_operation)
 
