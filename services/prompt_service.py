@@ -317,7 +317,7 @@ class PromptService:
                     needed_detail = False
 
                     if is_attack:
-                        prompt = await self._policy_persona(user_sub_question, history)
+                        prompt = await self._policy_persona(user_sub_question, history, prompt_session_id)
                     else:
                         prompt = await self._normal_persona(user_sub_question, history)
                     
